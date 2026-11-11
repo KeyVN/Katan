@@ -32,6 +32,7 @@ h1, h2, h3 { font-family: var(--display); margin: 0; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--panel2); color: var(--text); font-weight: 700; font-size: 14px;
+  letter-spacing: 0.4px;
   cursor: pointer; transition: transform .12s, background .15s, box-shadow .15s; white-space: nowrap;
 }
 .btn:hover:not(:disabled) { background: #3a5285; transform: translateY(-1px); }
@@ -60,10 +61,10 @@ h1, h2, h3 { font-family: var(--display); margin: 0; }
 .logo .x { font-family: var(--display); font-size: clamp(28px, 6vw, 52px); color: var(--pink); margin: 4px 0; display: block; transform: rotate(-6deg); }
 .logo .t2 { font-family: var(--display); font-weight: 700; font-size: clamp(36px, 7.5vw, 76px); color: #fff; letter-spacing: 3px;
   text-shadow: 0 5px 0 #a51d49, 0 12px 20px rgba(0,0,0,.5); }
-.logo .sub { color: var(--muted); margin-top: 14px; font-weight: 600; }
+.logo .sub { color: var(--muted); margin-top: 14px; font-weight: 600; text-shadow: 0 2px 0 rgba(0,0,0,0.45); }
 .menu-buttons { display: grid; gap: 12px; width: min(360px, 100%); position: relative; }
 .menu-buttons .btn { font-size: 17px; padding: 14px; }
-.menu-foot { margin-top: 26px; color: var(--muted); font-size: 13px; position: relative; text-align: center; }
+.menu-foot { margin-top: 26px; color: var(--muted); font-size: 14px; font-weight: 500; position: relative; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
 
 /* ---------- lobby ---------- */
 .lobby { max-width: 1320px; margin: 0 auto; padding: 18px 16px 110px; }
@@ -264,7 +265,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .respick .btn { flex-direction: column; font-size: 24px; padding: 10px 4px; }
 .respick .btn small { font-size: 11px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.section-label { font-weight: 800; margin: 12px 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.section-label { font-weight: 800; margin: 12px 0 6px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
 .offer { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: #17243f; border: 2px solid var(--gold); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); z-index: 8; width: min(460px, 94%); animation: modalIn .25s; }
 .offer .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 800; }
 .offer .resp { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }

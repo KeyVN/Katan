@@ -8,7 +8,7 @@
   --white: #f4f4f4; --steel: #94b0c2; --slate: #566c86; --dusk: #333c57;
   --gold: var(--sand); --pink: var(--coral); --red: var(--wine); --text: var(--white); --muted: var(--steel);
   --panel: #232b47; --panel2: #333c57; --line: rgba(148,176,194,.25);
-  --font: 'VT323', monospace; --display: 'Chakra Petch', 'VT323', monospace; --num: 'Chakra Petch', 'VT323', monospace;
+  --font: 'Chakra Petch', 'Be Vietnam Pro', sans-serif; --display: 'Chakra Petch', 'Be Vietnam Pro', sans-serif; --num: 'Chakra Petch', 'Be Vietnam Pro', sans-serif;
   --px: 3px;
 }
 * { border-radius: 0 !important; }
@@ -16,7 +16,7 @@ html { image-rendering: pixelated; }
 body {
   font-family: var(--font); font-weight: 500; font-size: 16px; letter-spacing: .3px;
   background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%231a1c2c'/%3E%3Crect width='1' height='1' fill='%23232b47'/%3E%3C/svg%3E") repeat;
-  -webkit-font-smoothing: none; font-smooth: never;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 img.px { image-rendering: pixelated; vertical-align: -0.2em; display: inline-block; }
 h1, h2, h3 { font-family: var(--display); font-weight: 700; letter-spacing: 1px; }
@@ -50,10 +50,10 @@ h1, h2, h3 { font-family: var(--display); font-weight: 700; letter-spacing: 1px;
 
 /* ---------- buttons ---------- */
 .btn {
-  font-family: var(--font); font-weight: 600; font-size: 16px; letter-spacing: .5px;
+  font-family: var(--font); font-weight: 600; font-size: 16px; letter-spacing: .4px;
   background: var(--blue); color: var(--white); border: 0;
   box-shadow: 0 0 0 3px var(--ink), inset -4px -4px 0 rgba(0,0,0,.35), inset 4px 4px 0 rgba(255,255,255,.28);
-  padding: 10px 16px; margin: 3px; text-shadow: 2px 2px 0 rgba(0,0,0,.4);
+  padding: 10px 16px; margin: 3px; text-shadow: 0 2px 0 rgba(0,0,0,0.45);
   transition: none;
 }
 .btn:hover:not(:disabled) { background: var(--sky); transform: translate(0, -2px); }
@@ -85,23 +85,24 @@ input[type=range] { accent-color: var(--sand); }
   text-shadow: 0 6px 0 var(--coral), 0 12px 0 var(--ink); }
 .logo .x { font-family: var(--display); color: var(--cyan); text-shadow: 4px 4px 0 var(--ink); transform: none; }
 .logo .t2 { font-family: var(--display); font-size: clamp(40px, 8vw, 86px); color: var(--white); text-shadow: 0 5px 0 var(--wine), 0 10px 0 var(--ink); letter-spacing: 6px; }
-.logo .sub { color: var(--white); text-shadow: 3px 3px 0 var(--ink); font-size: 18px; }
+.logo .sub { color: var(--white); text-shadow: 0 2px 0 rgba(0,0,0,0.45); font-size: 18px; }
 .menu-buttons .btn { font-size: 20px; }
 .menu-kingdom { position: relative; width: min(360px, 100%); display: flex; gap: 10px; align-items: center; margin: 0 0 18px; padding: 8px 10px 8px 6px;
   background: linear-gradient(180deg, #2b3563 0%, #1f2542 100%); box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--sand), 0 0 0 9px var(--ink), 8px 10px 0 6px rgba(0,0,0,.35); }
 .menu-kingdom .mk-flag { border: 0; background: none; padding: 0; cursor: pointer; width: 70px; height: 56px; }
 .menu-kingdom .mk-info { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.menu-kingdom .section-label { margin: 0; display: flex; gap: 6px; align-items: center; color: var(--sand); }
+.section-label { font-size: 15px; letter-spacing: 0.8px; }
+.menu-kingdom .section-label { margin: 0; display: flex; gap: 6px; align-items: center; color: var(--sand); font-size: 15px; letter-spacing: 0.8px; }
 .menu-kingdom .section-label .swatch { width: 12px; height: 12px; box-shadow: 0 0 0 2px var(--ink); }
 .menu-kingdom .hub-name { width: 100%; font-size: 18px !important; padding: 7px 10px !important; }
 .menu-kingdom .btn.sm { font-size: 20px; padding: 8px 10px; }
-.menu-foot { color: var(--steel); text-shadow: 2px 2px 0 var(--ink); }
+.menu-foot { color: var(--steel); font-size: 15px; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
 /* language picker, top right of the menu */
 .lang-pick { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 8px; background: var(--panel); box-shadow: 0 0 0 3px var(--ink), 0 0 0 5px var(--panel2), 4px 4px 0 5px rgba(0,0,0,.4); cursor: pointer; }
 .lang-pick img.px { width: 20px; height: 20px; }
 .lang-pick select { font-family: var(--display); font-size: 14px; color: var(--white); background: var(--ink); border: 0; padding: 4px 6px; cursor: pointer; }
 .lang-pick select:focus-visible { outline: 3px solid var(--sand); }
-.menu-foot .credits { margin-top: 6px; font-size: 12px; }
+.menu-foot .credits { margin-top: 6px; font-size: 13px; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
 .menu-foot a, .help-body a { color: var(--sand); }
 
 /* ---------- game ---------- */
