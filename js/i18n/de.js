@@ -490,6 +490,7 @@ export default {
   "✗ No": "✗ Nein",
   "✨ Alta calidad": "✨ Hohe Qualität",
   "✨ Crear sala": "✨ Raum erstellen",
+  "✨ Clic para jugar": "✨ Klicken zum Ausspielen",
   "➕ Hacer sitio ({n})": "➕ Platz machen ({n})",
   "🃏 @{p} compra una carta de desarrollo.": "🃏 @{p} kauft eine Entwicklungskarte.",
   "🃏 Compra una carta de desarrollo.": "🃏 Kaufe eine Entwicklungskarte.",

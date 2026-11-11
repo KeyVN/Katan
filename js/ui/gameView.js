@@ -764,9 +764,24 @@ function fillActions(bar, st, v, locked) {
       const info = DEV_INFO[type];
       const can = playable.has(type);
       const fresh = cards.every(c => c.turn >= st.turn);
+      const tipBadge = can
+        ? h('div', { class: 'dcard-tip-status good' }, t('✨ Clic para jugar'))
+        : (fresh && type !== 'vp'
+            ? h('div', { class: 'dcard-tip-status warn' }, t('(recién comprada: podrás jugarla el próximo turno)'))
+            : (type === 'vp'
+                ? h('div', { class: 'dcard-tip-status info' }, t('+1 punto (oculto).'))
+                : (st.current !== v
+                    ? h('div', { class: 'dcard-tip-status mute' }, t('No es tu turno.'))
+                    : h('div', { class: 'dcard-tip-status mute' }, t('No puedes jugar esa carta ahora.')))));
+
+      const tip = h('div', { class: 'dcard-tip' },
+        h('div', { class: 'dcard-tip-head' }, `${info.icon} ${t(info.name)}`),
+        h('div', { class: 'dcard-tip-desc' }, t(info.desc)),
+        tipBadge
+      );
+
       return h('div', {
         class: 'dcard' + (can ? ' playable' : '') + (fresh && type !== 'vp' ? ' new' : ''),
-        title: `${t(info.name)}: ${t(info.desc)}${fresh && type !== 'vp' ? ` ${t('(recién comprada: podrás jugarla el próximo turno)')}` : ''}`,
         onclick: () => {
           if (can) {
             playDev(st, v, type);
@@ -782,7 +797,7 @@ function fillActions(bar, st, v, locked) {
             ), 'info', 4500);
           }
         },
-      }, info.icon, h('b', null, `×${cards.length}`));
+      }, info.icon, h('b', null, `×${cards.length}`), tip);
     })));
 
   const acts = h('div', { class: 'actions' });

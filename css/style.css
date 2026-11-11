@@ -179,6 +179,53 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .dcard.new { opacity: .7; cursor: pointer; }
 .dcard.playable { box-shadow: 0 0 0 3px var(--gold); animation: glow 1.4s infinite; }
 @keyframes glow { 50% { box-shadow: 0 0 0 5px rgba(255,194,51,.4) } }
+
+.dcard-tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  min-width: 170px;
+  max-width: 250px;
+  background: rgba(14, 22, 38, 0.96);
+  border: 1.5px solid #a893ff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 12px rgba(168, 147, 255, 0.3);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  line-height: 1.35;
+}
+.dcard-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #a893ff;
+}
+.dcard:hover .dcard-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dcard-tip-head { font-weight: 700; font-size: 13px; color: #ffc233; display: flex; align-items: center; gap: 4px; }
+.dcard-tip-desc { font-size: 12px; color: #dbe4ee; font-weight: 400; }
+.dcard-tip-status { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-top: 2px; width: fit-content; }
+.dcard-tip-status.good { background: rgba(61, 220, 132, 0.2); color: #56e59a; border: 1px solid rgba(86, 229, 154, 0.4); }
+.dcard-tip-status.warn { background: rgba(255, 180, 0, 0.2); color: #ffc233; border: 1px solid rgba(255, 194, 51, 0.4); }
+.dcard-tip-status.info { background: rgba(168, 147, 255, 0.2); color: #c9bcff; border: 1px solid rgba(168, 147, 255, 0.4); }
+.dcard-tip-status.mute { background: rgba(255, 255, 255, 0.08); color: #9cb1c9; border: 1px solid rgba(255, 255, 255, 0.15); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
 .cost { display: block; font-size: 11px; font-weight: 700; opacity: .75; letter-spacing: -1px; }
 .btn .cost { margin-left: 2px; }

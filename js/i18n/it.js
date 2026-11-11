@@ -490,6 +490,7 @@ export default {
   "✗ No": "✗ No",
   "✨ Alta calidad": "✨ Alta qualità",
   "✨ Crear sala": "✨ Crea stanza",
+  "✨ Clic para jugar": "✨ Clicca per giocare",
   "➕ Hacer sitio ({n})": "➕ Fai spazio ({n})",
   "🃏 @{p} compra una carta de desarrollo.": "🃏 @{p} compra una carta sviluppo.",
   "🃏 Compra una carta de desarrollo.": "🃏 Compra una carta sviluppo.",

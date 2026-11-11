@@ -490,6 +490,7 @@ export default {
   "✗ No": "✗ Không",
   "✨ Alta calidad": "✨ Chất lượng cao",
   "✨ Crear sala": "✨ Tạo phòng",
+  "✨ Clic para jugar": "✨ Nhấn để sử dụng",
   "➕ Hacer sitio ({n})": "➕ Thêm chỗ ({n})",
   "🃏 @{p} compra una carta de desarrollo.": "🃏 @{p} mua một thẻ phát triển.",
   "🃏 Compra una carta de desarrollo.": "🃏 Mua một thẻ phát triển.",

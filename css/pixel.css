@@ -126,6 +126,48 @@ input[type=range] { accent-color: var(--sand); }
 .rcard b { background: var(--ink); font-size: 15px; }
 .dcard { border: 0; background: var(--plum); box-shadow: 0 0 0 3px var(--ink), inset -3px -3px 0 rgba(0,0,0,.35), inset 3px 3px 0 #9b4d9b; margin: 3px; }
 .dcard.playable { box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--sand); animation: activeBlink 2.4s ease-in-out infinite; }
+.dcard-tip {
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 0 0 3px var(--sand), 0 0 0 6px var(--ink), 4px 6px 0 6px rgba(0, 0, 0, 0.45);
+  font-family: var(--font);
+}
+.dcard-tip::after {
+  border-top-color: var(--sand);
+}
+.dcard-tip-head {
+  font-family: var(--display);
+  letter-spacing: 0.3px;
+  color: var(--sand);
+}
+.dcard-tip-desc {
+  font-family: var(--font);
+  color: var(--white);
+}
+.dcard-tip-status {
+  border-radius: 0;
+}
+.dcard-tip-status.good {
+  background: #10301f;
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+.dcard-tip-status.warn {
+  background: #332610;
+  color: var(--sand);
+  border: 1px solid var(--sand);
+}
+.dcard-tip-status.info {
+  background: #2a1636;
+  color: #e0b0ff;
+  border: 1px solid #9b4d9b;
+}
+.dcard-tip-status.mute {
+  background: var(--ink);
+  color: var(--steel);
+  border: 1px solid var(--steel);
+}
 .offer { background: #1f2542; box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--sand), 0 0 0 9px var(--ink), 8px 10px 0 6px rgba(0,0,0,.4); }
 .toast { background: var(--ink); box-shadow: 0 0 0 3px var(--steel), 0 0 0 6px var(--ink); }
 .toast.error { background: #3a1422; box-shadow: 0 0 0 3px var(--wine), 0 0 0 6px var(--ink); }
