@@ -24,62 +24,66 @@ const ADMIN = new Set(['retirePlayer', 'setController']);
 let peerLib = null;
 
 // TURN relay for friends whose network blocks direct P2P (CGNAT, mobile data, campus wifi).
-// Open Relay Project provides free public STUN/TURN servers across UDP, TCP and TLS (TURNS).
-// Also supports custom Metered account via code constants or localStorage.
-const METERED_APP = ''; // "<app>" in <app>.metered.live
-const METERED_KEY = '';
+// Supports Metered TURN account (free forever at dashboard.metered.ca) or custom TURN server.
+export let METERED_APP = ''; // optional hardcoded "<app>" in <app>.metered.live
+export let METERED_KEY = '';
 
-const STUN = [
+export const STUN = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'stun:openrelay.metered.ca:80' }
-];
-
-const DEFAULT_TURN = [
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turn:openrelay.metered.ca:443?transport=tcp',
-      'turns:openrelay.metered.ca:443?transport=tcp',
-      'turns:openrelay.metered.ca:443'
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
+  { urls: 'stun:stun.metered.ca:80' }
 ];
 
 let iceList = null;
 
-async function fetchDynamicTurn(app, key) {
-  const url = app && key
-    ? `https://${app}.metered.live/api/v1/turn/credentials?apiKey=${key}`
-    : 'https://openrelay.metered.ca/api/v1/turn/credentials';
+export function resetIceCache() {
+  iceList = null;
+}
+
+export function getTurnConfig() {
+  const app = (METERED_APP || storage('katanittes.meteredApp') || '').trim();
+  const key = (METERED_KEY || storage('katanittes.meteredKey') || '').trim();
+  const custom = storage('katanittes.customTurn');
+  return { app, key, custom, hasTurn: !!((app && key) || custom) };
+}
+
+export async function fetchMeteredTurn(app, key) {
+  if (!app || !key) return null;
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
   try {
-    const res = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+    const res = await fetch(`https://${app}.metered.live/api/v1/turn/credentials?apiKey=${key}`, ctrl ? { signal: ctrl.signal } : {});
     if (timer) clearTimeout(timer);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) return data;
-  } catch {
+  } catch (err) {
     if (timer) clearTimeout(timer);
+    console.warn('Metered TURN fetch:', err);
   }
   return null;
 }
 
-function peerOptions() {
+export function peerOptions() {
   iceList ||= (async () => {
-    const app = METERED_APP || storage('katanittes.meteredApp') || '';
-    const key = METERED_KEY || storage('katanittes.meteredKey') || '';
-    const dynamic = await fetchDynamicTurn(app, key);
-    const iceServers = dynamic
-      ? [...STUN, ...dynamic, ...DEFAULT_TURN]
-      : [...STUN, ...DEFAULT_TURN];
-    return iceServers;
+    const { app, key, custom } = getTurnConfig();
+    let turnServers = [];
+    if (app && key) {
+      const dynamic = await fetchMeteredTurn(app, key);
+      if (dynamic) turnServers.push(...dynamic);
+    }
+    if (custom) {
+      try {
+        const parsed = typeof custom === 'string' ? JSON.parse(custom) : custom;
+        if (Array.isArray(parsed)) turnServers.push(...parsed);
+        else if (parsed && parsed.urls) turnServers.push(parsed);
+      } catch {}
+    }
+    return [...STUN, ...turnServers];
   })();
   return iceList.then(iceServers => ({
     config: {
@@ -607,22 +611,41 @@ export class Net {
       let timer = null;
       let c = null;
 
+      const peerErrorHandler = err => {
+        if (settled) return;
+        if (err && err.type === 'peer-unavailable') {
+          settled = true;
+          cleanup();
+          try { c && c.close(); } catch {}
+          rej(new Error(t('No existe una sala con ese código')));
+        }
+      };
+
       const cleanup = () => {
         if (timer) {
           clearTimeout(timer);
           timer = null;
         }
+        if (this.peer) {
+          try { this.peer.off('error', peerErrorHandler); } catch {}
+        }
       };
+
+      if (this.peer) {
+        this.peer.on('error', peerErrorHandler);
+      }
 
       try {
         c = this.peer.connect(PREFIX + this.code, { reliable: true });
       } catch (err) {
+        cleanup();
         return rej(err);
       }
 
       timer = setTimeout(() => {
         if (settled) return;
         settled = true;
+        cleanup();
         try { c.close(); } catch {}
         rej(new Error('timeout'));
       }, timeoutPerTry);

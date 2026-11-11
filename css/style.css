@@ -176,7 +176,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .devcards { display: flex; gap: 6px; }
 .dcard { width: 46px; height: 62px; border-radius: 8px; background: linear-gradient(160deg, #6d4bd8, #3b2896); border: 2px solid #a893ff; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; color: #fff; position: relative; }
 .dcard b { font-size: 12px; }
-.dcard.new { opacity: .55; cursor: default; }
+.dcard.new { opacity: .7; cursor: pointer; }
 .dcard.playable { box-shadow: 0 0 0 3px var(--gold); animation: glow 1.4s infinite; }
 @keyframes glow { 50% { box-shadow: 0 0 0 5px rgba(255,194,51,.4) } }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
@@ -327,12 +327,15 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .announce .ad { color: var(--muted); font-weight: 700; }
 @keyframes announce { 0% { transform: scale(.4) rotate(-8deg); opacity: 0 } 12% { transform: scale(1.08) rotate(2deg); opacity: 1 } 20% { transform: scale(1) rotate(0) } 82% { opacity: 1; transform: scale(1) } 100% { opacity: 0; transform: scale(1.1) } }
 
-.toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 100; display: grid; gap: 8px; pointer-events: none; }
-.toast { background: #22345c; border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-weight: 700; box-shadow: var(--shadow); animation: modalIn .2s; transition: opacity .4s, transform .4s; }
+.toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 100; display: grid; gap: 8px; pointer-events: none; max-width: 90vw; }
+.toast { background: #22345c; border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-weight: 700; box-shadow: var(--shadow); animation: modalIn .2s; transition: opacity .4s, transform .4s; max-width: min(92vw, 540px); text-align: center; line-height: 1.4; word-break: break-word; }
 .toast.error { background: #5c2230; border-color: #ff7a8a; }
 .toast.good { background: #1d4d38; border-color: #56e59a; }
 .toast.out { opacity: 0; transform: translateY(-10px); }
 .toast button { pointer-events: auto; margin-left: 8px; }
+.devbought-toast { display: flex; flex-direction: column; gap: 4px; text-align: center; }
+.devbought-head { font-weight: 700; font-size: 15px; }
+.devbought-desc { font-weight: 500; font-size: 13px; opacity: .95; line-height: 1.35; }
 
 .winner-hero { text-align: center; }
 .winner-hero .trophy { font-size: 80px; animation: floaty 2.5s infinite; }

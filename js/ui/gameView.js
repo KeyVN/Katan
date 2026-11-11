@@ -244,7 +244,24 @@ function handleFx(st) {
         f.from.forEach(([o, n], i) => flyCards(Array(n).fill(f.res), o, f.pid, v, { delay: i * 200 }));
         break;
       case 'devBought':
-        if (f.pid === v) toast(t('🃏 Compraste: {icon} {card}', { icon: DEV_INFO[f.type].icon, card: t(DEV_INFO[f.type].name) }), 'good');
+        if (f.pid === v) {
+          play.pop();
+          const info = DEV_INFO[f.type];
+          const timing = f.type === 'vp'
+            ? ''
+            : ` ${t('(recién comprada: podrás jugarla el próximo turno)')}`;
+          const cardEl = h('div', { class: 'devbought-toast' },
+            h('div', { class: 'devbought-head' }, t('🃏 Compraste: {icon} {card}', { icon: info.icon, card: t(info.name) })),
+            h('div', { class: 'devbought-desc' }, `${t(info.desc)}${timing}`)
+          );
+          toast(cardEl, 'good', 6000);
+        }
+        break;
+      case 'devPlayed':
+        if (f.pid === v) {
+          const info = DEV_INFO[f.card];
+          toast(`${info.icon} ${t(info.name)}: ${t(info.desc)}`, 'good', 3500);
+        }
         break;
       case 'win':
         play.win();
@@ -750,7 +767,21 @@ function fillActions(bar, st, v, locked) {
       return h('div', {
         class: 'dcard' + (can ? ' playable' : '') + (fresh && type !== 'vp' ? ' new' : ''),
         title: `${t(info.name)}: ${t(info.desc)}${fresh && type !== 'vp' ? ` ${t('(recién comprada: podrás jugarla el próximo turno)')}` : ''}`,
-        onclick: () => can && playDev(st, v, type),
+        onclick: () => {
+          if (can) {
+            playDev(st, v, type);
+          } else {
+            const extra = type === 'vp'
+              ? ''
+              : (fresh
+                  ? ` ${t('(recién comprada: podrás jugarla el próximo turno)')}`
+                  : (st.current !== v ? ` (${t('No es tu turno.')})` : ` (${t('No puedes jugar esa carta ahora.')})`));
+            toast(h('div', { class: 'devbought-toast' },
+              h('div', { class: 'devbought-head' }, `${info.icon} ${t(info.name)}`),
+              h('div', { class: 'devbought-desc' }, `${t(info.desc)}${extra}`)
+            ), 'info', 4500);
+          }
+        },
       }, info.icon, h('b', null, `×${cards.length}`));
     })));
 

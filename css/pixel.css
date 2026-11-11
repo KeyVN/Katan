@@ -130,6 +130,8 @@ input[type=range] { accent-color: var(--sand); }
 .toast { background: var(--ink); box-shadow: 0 0 0 3px var(--steel), 0 0 0 6px var(--ink); }
 .toast.error { background: #3a1422; box-shadow: 0 0 0 3px var(--wine), 0 0 0 6px var(--ink); }
 .toast.good { background: #10301f; box-shadow: 0 0 0 3px var(--green), 0 0 0 6px var(--ink); }
+.devbought-head { font-family: var(--display); letter-spacing: 0.4px; color: var(--sand); }
+.devbought-desc { font-family: var(--font); color: #fff; }
 .announce > div { background: var(--ink); border: 0; box-shadow: 0 0 0 4px var(--sand), 0 0 0 8px var(--ink), 0 0 0 12px var(--coral), 0 0 60px rgba(255,205,117,.35); }
 .announce .at { font-family: var(--display); color: var(--sand); text-shadow: 4px 4px 0 var(--wine); font-size: 40px; }
 .announce .ai img.px { width: 72px; height: 72px; }

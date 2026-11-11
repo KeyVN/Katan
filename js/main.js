@@ -4,7 +4,7 @@ import { lobbyScreen } from './ui/lobby.js';
 import { gameScreen } from './ui/gameView.js';
 import { editorScreen, decodeMap } from './ui/editor.js';
 import { showHelp, creditLine } from './ui/help.js';
-import { Net, HOST_SESSION, GUEST_SESSION } from './net.js';
+import { Net, HOST_SESSION, GUEST_SESSION, getTurnConfig, resetIceCache, fetchMeteredTurn } from './net.js';
 import { openFlagEditor, flagImg, myKingdom, saveMyKingdom, patternFlag } from './ui/flag.js';
 import { autoPixelize } from './ui/pixel.js';
 import { t, LANGS, lang, setLang } from './i18n.js';
@@ -276,8 +276,55 @@ function onlineScreen(root) {
       h('div', { class: 'hub-tips' },
         h('span', null, t('📡 Conexión directa entre navegadores')),
         h('span', null, t('🔁 Si se te cae la señal, vuelves a tu asiento')),
-        h('span', null, t('🗳️ Si alguien se va, la mesa vota'))));
+        h('span', null, t('🗳️ Si alguien se va, la mesa vota')),
+        h('button', { class: 'chip' + (getTurnConfig().hasTurn ? ' on' : ''), onclick: () => openTurnModal(draw) }, getTurnConfig().hasTurn ? t('Relay TURN activo') : t('⚙️ Configurar TURN Relay'))));
     if (pre && !boxes[4].value) boxes[pre.length] && boxes[pre.length].focus();
+  }
+
+  function openTurnModal(onDone) {
+    const cfg = getTurnConfig();
+    const appIn = h('input', { type: 'text', class: 'hub-name', placeholder: 'mi-app', value: cfg.app, maxlength: 40 });
+    const keyIn = h('input', { type: 'text', class: 'hub-name', placeholder: 'Clave API de Metered', value: cfg.key, maxlength: 100 });
+    const link = h('a', { href: 'https://dashboard.metered.ca/signup', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent, #ffb300)', textDecoration: 'underline', fontSize: '13px', display: 'inline-block', margin: '4px 0' } }, t('Crear cuenta gratis en metered.ca (30s)'));
+    const statusNote = h('div', { class: 'section-label', style: { margin: '6px 0' } }, cfg.hasTurn ? t('Relay TURN activo') : t('Sin Relay TURN (solo P2P directo)'));
+
+    const ov = h('div', { class: 'overlay', onclick: e => e.target === ov && ov.remove() },
+      h('div', { class: 'modal', style: { maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '8px' } },
+        h('h2', null, t('⚙️ Configurar TURN Relay')),
+        h('p', { style: { fontSize: '13px', lineHeight: '1.4', margin: '0' } }, t('Para jugar a través de 4G/5G o redes con NAT estricto, ingresa tu cuenta gratuita de Metered (500 MB/mes gratis, sin tarjeta).')),
+        link,
+        statusNote,
+        h('label', { class: 'section-label' }, t('Nombre de la App (Metered)')), appIn,
+        h('label', { class: 'section-label' }, t('Clave API (API Key)')), keyIn,
+        h('div', { class: 'row', style: { marginTop: '12px', justifyContent: 'flex-end', gap: '8px' } },
+          h('button', { class: 'btn ghost', onclick: () => ov.remove() }, t('Cancelar')),
+          cfg.hasTurn ? h('button', { class: 'btn sm ghost', onclick: () => {
+            storage('katanittes.meteredApp', null);
+            storage('katanittes.meteredKey', null);
+            storage('katanittes.customTurn', null);
+            resetIceCache();
+            ov.remove();
+            onDone && onDone();
+          } }, t('Borrar')) : null,
+          h('button', { class: 'btn primary', onclick: async () => {
+            const app = appIn.value.trim();
+            const key = keyIn.value.trim();
+            if (!app || !key) {
+              return toast(t('Credenciales de TURN no válidas'), 'error');
+            }
+            toast(t('⏳ Buscando la sala {code}...', { code: 'TURN' }));
+            const list = await fetchMeteredTurn(app, key);
+            if (!list) {
+              return toast(t('Credenciales de TURN no válidas'), 'error');
+            }
+            storage('katanittes.meteredApp', app);
+            storage('katanittes.meteredKey', key);
+            resetIceCache();
+            toast(t('Conexión con TURN Relay exitosa'), 'good');
+            ov.remove();
+            onDone && onDone();
+          } }, t('Probar y guardar')))));
+    document.body.append(ov);
   }
 
   function drawWaiting(net) {
