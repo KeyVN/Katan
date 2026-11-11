@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const JS = path.join(ROOT, 'js');
-const LANGS = ['en', 'pt', 'fr', 'de', 'it'];
+const LANGS = ['en', 'pt', 'fr', 'de', 'it', 'vi'];
 const STR = String.raw`('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\x60(?:\\.|[^\x60\\])*\x60)`;
 const CALLS = [new RegExp(String.raw`\b(?:t|tk|msg|fail)\(\s*` + STR, 'g'), new RegExp(String.raw`\blog\(\s*s\s*,\s*` + STR, 'g')];
 const DATA = new RegExp(String.raw`\b(?:name|desc)\s*:\s*` + STR, 'g');

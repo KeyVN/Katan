@@ -8,7 +8,7 @@
   --white: #f4f4f4; --steel: #94b0c2; --slate: #566c86; --dusk: #333c57;
   --gold: var(--sand); --pink: var(--coral); --red: var(--wine); --text: var(--white); --muted: var(--steel);
   --panel: #232b47; --panel2: #333c57; --line: rgba(148,176,194,.25);
-  --font: 'Pixelify Sans', 'Nunito', monospace; --display: 'Silkscreen', 'Pixelify Sans', monospace; --num: 'Silkscreen', monospace;
+  --font: 'VT323', monospace; --display: 'Chakra Petch', 'VT323', monospace; --num: 'Chakra Petch', 'VT323', monospace;
   --px: 3px;
 }
 * { border-radius: 0 !important; }

@@ -8,6 +8,7 @@ import pt from './i18n/pt.js';
 import fr from './i18n/fr.js';
 import de from './i18n/de.js';
 import it from './i18n/it.js';
+import vi from './i18n/vi.js';
 
 export const LANGS = [
   { id: 'es', name: 'Español' },
@@ -16,8 +17,9 @@ export const LANGS = [
   { id: 'fr', name: 'Français' },
   { id: 'de', name: 'Deutsch' },
   { id: 'it', name: 'Italiano' },
+  { id: 'vi', name: 'Tiếng Việt' },
 ];
-const DICTS = { es: {}, en, pt, fr, de, it };
+const DICTS = { es: {}, en, pt, fr, de, it, vi };
 const KEY = 'katanittes.lang';
 
 // the saved choice, else the browser's language, else English (Spanish when there is no browser: tests)
