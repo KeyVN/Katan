@@ -684,4 +684,6 @@ export default {
   "Probar y guardar": "Kiểm tra & Lưu",
   "Conexión con TURN Relay exitosa": "✅ Kết nối TURN Relay thành công!",
   "Credenciales de TURN no válidas": "❌ Thông tin xác thực TURN không hợp lệ",
+  "💡 Solo el anfitrión necesita configurar el Relay TURN: todos los invitados se conectarán a través de él.": "💡 Chỉ cần người tạo phòng (Host) cài đặt TURN Relay: tất cả người chơi khác sẽ tự động kết nối qua đó.",
+  "O bien ingresa un servidor TURN personalizado (ej: turn:tu-servidor:3478)": "Hoặc nhập máy chủ TURN tùy chỉnh (VD: turn:may-chu:3478)",
 };

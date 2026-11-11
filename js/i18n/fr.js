@@ -684,4 +684,6 @@ export default {
   "Probar y guardar": "Tester et enregistrer",
   "Conexión con TURN Relay exitosa": "✅ Connexion au relais TURN réussie !",
   "Credenciales de TURN no válidas": "❌ Identifiants TURN invalides",
+  "💡 Solo el anfitrión necesita configurar el Relay TURN: todos los invitados se conectarán a través de él.": "💡 Seul l'hôte a besoin de configurer le relais TURN : tous les invités s'y connecteront automatiquement.",
+  "O bien ingresa un servidor TURN personalizado (ej: turn:tu-servidor:3478)": "Ou entrez un serveur TURN personnalisé (ex : turn:votre-serveur:3478)",
 };

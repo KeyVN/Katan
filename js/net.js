@@ -31,7 +31,9 @@ export let METERED_KEY = '';
 export const STUN = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
-  { urls: 'stun:stun.metered.ca:80' }
+  { urls: 'stun:stun.nextcloud.com:443' },
+  { urls: 'stun:relay.metered.ca:80' },
+  { urls: 'stun:stun.services.mozilla.com:3478' }
 ];
 
 let iceList = null;
@@ -85,8 +87,11 @@ export function peerOptions() {
     config: {
       iceServers,
       iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 2
-    }
+      iceCandidatePoolSize: 2,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
+    },
+    pingInterval: 5000
   }));
 }
 
@@ -103,14 +108,24 @@ function loadPeer() {
   if (peerLib) return peerLib;
   peerLib = new Promise((res, rej) => {
     if (window.Peer) return res(window.Peer);
-    const sc = document.createElement('script');
-    sc.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
-    sc.onload = () => res(window.Peer);
-    sc.onerror = () => {
-      peerLib = null;
-      rej(new Error(t('No se pudo cargar PeerJS')));
+    const tryScript = (url, fallback) => {
+      const sc = document.createElement('script');
+      sc.src = url;
+      sc.onload = () => res(window.Peer);
+      sc.onerror = () => {
+        sc.remove();
+        if (fallback) tryScript(fallback, null);
+        else {
+          peerLib = null;
+          rej(new Error(t('No se pudo cargar PeerJS')));
+        }
+      };
+      document.head.append(sc);
     };
-    document.head.append(sc);
+    tryScript(
+      'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js'
+    );
   });
   return peerLib;
 }
@@ -271,10 +286,24 @@ export class Net {
       conn.on('data', msg => this.onHostData(conn, msg));
       conn.on('close', () => this.lost(conn));
       conn.on('error', () => this.lost(conn));
+      if (conn.peerConnection) {
+        conn.peerConnection.addEventListener('iceconnectionstatechange', () => {
+          if (conn.peerConnection && conn.peerConnection.iceConnectionState === 'failed') {
+            try { conn.close(); } catch {}
+            this.lost(conn);
+          }
+        });
+      }
     });
     this.peer.on('disconnected', () => {
-      // lost the broker (not the guests): try to get the id back
-      if (this.active) setTimeout(() => this.peer && !this.peer.destroyed && this.peer.reconnect(), 2000);
+      // lost the broker (not the guests): retry until reconnected or destroyed
+      if (!this.active || this.peer.destroyed) return;
+      const tryBroker = () => {
+        if (!this.active || this.peer.destroyed || !this.peer.disconnected) return;
+        this.peer.reconnect();
+        setTimeout(tryBroker, 3000);
+      };
+      setTimeout(tryBroker, 1500);
     });
     this.onChange();
     return this.code;
@@ -625,7 +654,15 @@ export class Net {
             if (first && !this.everConnected) rej(new Error(t('No existe una sala con ese código')));
           } else if (!this.everConnected && first) rej(new Error(t('Error de red: {type}', { type: e.type })));
         });
-        p.on('disconnected', () => this.active && !p.destroyed && setTimeout(() => p.reconnect(), 1500));
+        p.on('disconnected', () => {
+          if (!this.active || p.destroyed) return;
+          const tryBroker = () => {
+            if (!this.active || p.destroyed || !p.disconnected) return;
+            p.reconnect();
+            setTimeout(tryBroker, 3000);
+          };
+          setTimeout(tryBroker, 1500);
+        });
       });
     } else if (this.peer.disconnected && !this.peer.destroyed) {
       await new Promise(r => {
@@ -693,6 +730,19 @@ export class Net {
         this.everConnected = true;
         this.reconnecting = false;
         this.lastPing = Date.now();
+        if (c.peerConnection) {
+          c.peerConnection.addEventListener('iceconnectionstatechange', () => {
+            const st = c.peerConnection && c.peerConnection.iceConnectionState;
+            if (st === 'failed') {
+              try { c.close(); } catch {}
+              if (this.active && this.conn === c) {
+                this.retry();
+              }
+            } else if (st === 'connected' || st === 'completed') {
+              this.reconnecting = false;
+            }
+          });
+        }
         clearInterval(this.hb);
         let lastGuestHb = Date.now();
         this.hb = setInterval(() => {

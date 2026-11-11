@@ -287,6 +287,10 @@ function onlineScreen(root) {
     const keyIn = h('input', { type: 'text', class: 'hub-name', placeholder: 'Clave API de Metered', value: cfg.key, maxlength: 100 });
     const link = h('a', { href: 'https://dashboard.metered.ca/signup', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent, #ffb300)', textDecoration: 'underline', fontSize: '13px', display: 'inline-block', margin: '4px 0' } }, t('Crear cuenta gratis en metered.ca (30s)'));
     const statusNote = h('div', { class: 'section-label', style: { margin: '6px 0' } }, cfg.hasTurn ? t('Relay TURN activo') : t('Sin Relay TURN (solo P2P directo)'));
+    const hostTip = h('p', { style: { fontSize: '12px', opacity: '0.85', margin: '4px 0 8px 0', lineHeight: '1.4' } }, t('💡 Solo el anfitrión necesita configurar el Relay TURN: todos los invitados se conectarán a través de él.'));
+
+    const customVal = typeof cfg.custom === 'object' && cfg.custom ? JSON.stringify(cfg.custom) : (cfg.custom || '');
+    const customIn = h('input', { type: 'text', class: 'hub-name', placeholder: 'turn:servidor:3478 (o JSON)', value: customVal, maxlength: 200 });
 
     const ov = h('div', { class: 'overlay', onclick: e => e.target === ov && ov.remove() },
       h('div', { class: 'modal', style: { maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '8px' } },
@@ -294,8 +298,10 @@ function onlineScreen(root) {
         h('p', { style: { fontSize: '13px', lineHeight: '1.4', margin: '0' } }, t('Para jugar a través de 4G/5G o redes con NAT estricto, ingresa tu cuenta gratuita de Metered (500 MB/mes gratis, sin tarjeta).')),
         link,
         statusNote,
+        hostTip,
         h('label', { class: 'section-label' }, t('Nombre de la App (Metered)')), appIn,
         h('label', { class: 'section-label' }, t('Clave API (API Key)')), keyIn,
+        h('label', { class: 'section-label' }, t('O bien ingresa un servidor TURN personalizado (ej: turn:tu-servidor:3478)')), customIn,
         h('div', { class: 'row', style: { marginTop: '12px', justifyContent: 'flex-end', gap: '8px' } },
           h('button', { class: 'btn ghost', onclick: () => ov.remove() }, t('Cancelar')),
           cfg.hasTurn ? h('button', { class: 'btn sm ghost', onclick: () => {
@@ -309,8 +315,19 @@ function onlineScreen(root) {
           h('button', { class: 'btn primary', onclick: async () => {
             const app = appIn.value.trim();
             const key = keyIn.value.trim();
-            if (!app || !key) {
+            const custom = customIn.value.trim();
+            if (!custom && (!app || !key)) {
               return toast(t('Credenciales de TURN no válidas'), 'error');
+            }
+            if (custom) {
+              storage('katanittes.customTurn', custom);
+              storage('katanittes.meteredApp', app || null);
+              storage('katanittes.meteredKey', key || null);
+              resetIceCache();
+              toast(t('Conexión con TURN Relay exitosa'), 'good');
+              ov.remove();
+              onDone && onDone();
+              return;
             }
             toast(t('⏳ Buscando la sala {code}...', { code: 'TURN' }));
             const list = await fetchMeteredTurn(app, key);
@@ -319,6 +336,7 @@ function onlineScreen(root) {
             }
             storage('katanittes.meteredApp', app);
             storage('katanittes.meteredKey', key);
+            storage('katanittes.customTurn', null);
             resetIceCache();
             toast(t('Conexión con TURN Relay exitosa'), 'good');
             ov.remove();

@@ -684,4 +684,6 @@ export default {
   "Probar y guardar": "Test & Save",
   "Conexión con TURN Relay exitosa": "✅ TURN Relay connection successful!",
   "Credenciales de TURN no válidas": "❌ Invalid TURN credentials",
+  "💡 Solo el anfitrión necesita configurar el Relay TURN: todos los invitados se conectarán a través de él.": "💡 Only the host needs to configure TURN Relay: all guests will connect through it automatically.",
+  "O bien ingresa un servidor TURN personalizado (ej: turn:tu-servidor:3478)": "Or enter a custom TURN server (e.g.: turn:your-server:3478)",
 };
