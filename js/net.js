@@ -17,34 +17,77 @@ export const HOST_SESSION = 'katanittes.hostSession';
 export const GUEST_SESSION = 'katanittes.guestSession';
 const TOKEN_KEY = 'katanittes.token';
 const GRACE_MS = 12000; // time to come back before the table votes
-const PING_MS = 3000, DEAD_MS = 10000; // heartbeat: abrupt signal loss is noticed in ~10s
+const PING_MS = 3000, DEAD_MS = 15000; // heartbeat: abrupt signal loss is noticed in ~15s
 const VOTE_MS = 45000;
 const WAIT_MS = 60000; // a "wait" result gives this much extra time
 const ADMIN = new Set(['retirePlayer', 'setController']);
 let peerLib = null;
 
 // TURN relay for friends whose network blocks direct P2P (CGNAT, mobile data, campus wifi).
-// PeerJS's bundled TURN hosts no longer resolve, so without our own relay those players can't join.
-// Free key: dashboard.metered.ca → TURN Server → create app → API key.
+// Open Relay Project provides free public STUN/TURN servers across UDP, TCP and TLS (TURNS).
+// Also supports custom Metered account via code constants or localStorage.
 const METERED_APP = ''; // "<app>" in <app>.metered.live
 const METERED_KEY = '';
-const STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
+
+const STUN = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:openrelay.metered.ca:80' }
+];
+
+const DEFAULT_TURN = [
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+      'turns:openrelay.metered.ca:443?transport=tcp',
+      'turns:openrelay.metered.ca:443'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 let iceList = null;
+
+async function fetchDynamicTurn(app, key) {
+  const url = app && key
+    ? `https://${app}.metered.live/api/v1/turn/credentials?apiKey=${key}`
+    : 'https://openrelay.metered.ca/api/v1/turn/credentials';
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+  try {
+    const res = await fetch(url, ctrl ? { signal: ctrl.signal } : {});
+    if (timer) clearTimeout(timer);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {
+    if (timer) clearTimeout(timer);
+  }
+  return null;
+}
+
 function peerOptions() {
   iceList ||= (async () => {
-    if (!METERED_APP || !METERED_KEY) return STUN;
-    try {
-      const r = await fetch(`https://${METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${METERED_KEY}`);
-      const turn = await r.json();
-      if (!r.ok || !Array.isArray(turn)) throw new Error('TURN ' + r.status);
-      return [...STUN, ...turn];
-    } catch (e) {
-      console.warn('Sin TURN, solo P2P directo:', e);
-      iceList = null;
-      return STUN;
-    }
+    const app = METERED_APP || storage('katanittes.meteredApp') || '';
+    const key = METERED_KEY || storage('katanittes.meteredKey') || '';
+    const dynamic = await fetchDynamicTurn(app, key);
+    const iceServers = dynamic
+      ? [...STUN, ...dynamic, ...DEFAULT_TURN]
+      : [...STUN, ...DEFAULT_TURN];
+    return iceServers;
   })();
-  return iceList.then(iceServers => ({ config: { iceServers } }));
+  return iceList.then(iceServers => ({
+    config: {
+      iceServers,
+      iceTransportPolicy: 'all',
+      iceCandidatePoolSize: 10
+    }
+  }));
 }
 
 export function myToken() {
@@ -548,21 +591,49 @@ export class Net {
         });
         p.on('disconnected', () => this.active && !p.destroyed && setTimeout(() => p.reconnect(), 1500));
       });
+    } else if (this.peer.disconnected && !this.peer.destroyed) {
+      await new Promise(r => {
+        this.peer.once('open', r);
+        this.peer.reconnect();
+        setTimeout(r, 2000);
+      });
     }
-    return new Promise((res, rej) => {
-      const c = this.peer.connect(PREFIX + this.code, { reliable: true });
-      const timer = setTimeout(() => {
-        if (first && !this.everConnected) rej(new Error(t('La sala existe pero no se pudo conectar: tu red bloquea la conexión directa. Prueba con otra wifi o con datos móviles.')));
-        else {
-          try {
-            c.close();
-          } catch {}
-          this.retry();
+
+    const maxTries = first && !this.everConnected ? 3 : 1;
+    const timeoutPerTry = first && !this.everConnected ? 15000 : 12000;
+
+    const tryConnect = () => new Promise((res, rej) => {
+      let settled = false;
+      let timer = null;
+      let c = null;
+
+      const cleanup = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
         }
-        res();
-      }, 12000);
+      };
+
+      try {
+        c = this.peer.connect(PREFIX + this.code, { reliable: true });
+      } catch (err) {
+        return rej(err);
+      }
+
+      timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { c.close(); } catch {}
+        rej(new Error('timeout'));
+      }, timeoutPerTry);
+
       c.on('open', () => {
-        clearTimeout(timer);
+        if (settled) {
+          try { c.close(); } catch {}
+          return;
+        }
+        settled = true;
+        cleanup();
         this.conn = c;
         this.everConnected = true;
         this.reconnecting = false;
@@ -582,12 +653,44 @@ export class Net {
         if (App.onMeta) App.onMeta();
         res();
       });
+
+      c.on('error', err => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try { c.close(); } catch {}
+        rej(err);
+      });
+
       c.on('data', msg => this.onClientData(msg));
       c.on('close', () => {
         if (!this.active || this.conn !== c) return;
         this.retry();
       });
     });
+
+    for (let attempt = 1; attempt <= maxTries; attempt++) {
+      if (!this.active) return;
+      if (this.peer && this.peer.disconnected && !this.peer.destroyed) {
+        this.peer.reconnect();
+        await sleep(500);
+      }
+      try {
+        await tryConnect();
+        return;
+      } catch {
+        if (this.everConnected) return;
+        if (attempt < maxTries) {
+          await sleep(1000);
+        }
+      }
+    }
+
+    if (first && !this.everConnected) {
+      throw new Error(t('La sala existe pero no se pudo conectar: tu red bloquea la conexión directa. Prueba con otra wifi o con datos móviles.'));
+    } else {
+      this.retry();
+    }
   }
 
   retry() {
