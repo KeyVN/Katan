@@ -37,7 +37,7 @@ export class BoardView {
     const svg = this.svg;
     svg.addEventListener('wheel', e => {
       e.preventDefault();
-      this.setZoom(this.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
+      this.setZoom(this.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY);
     }, { passive: false });
     const pts = new Map();
     let start = null;
@@ -80,8 +80,22 @@ export class BoardView {
     svg.addEventListener('pointerleave', end);
   }
 
-  setZoom(z) {
-    this.zoom = Math.max(0.6, Math.min(4, z));
+  setZoom(z, clientX = null, clientY = null) {
+    const nz = Math.max(0.6, Math.min(4, z));
+    if (clientX != null && clientY != null && this.cx != null && this.vbW && this.vbH) {
+      const rect = this.svg.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const fx = (clientX - rect.left) / rect.width;
+        const fy = (clientY - rect.top) / rect.height;
+        const wx = (this.cx - this.vbW / 2) + fx * this.vbW;
+        const wy = (this.cy - this.vbH / 2) + fy * this.vbH;
+        const newVbW = this.baseW / nz;
+        const newVbH = this.baseH / nz;
+        this.cx = wx + (0.5 - fx) * newVbW;
+        this.cy = wy + (0.5 - fy) * newVbH;
+      }
+    }
+    this.zoom = nz;
     this.applyViewBox();
   }
 

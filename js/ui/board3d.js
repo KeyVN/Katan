@@ -706,7 +706,8 @@ export class Board3D {
     this.container = container;
     this.kit = kit;
     this.tex = tex;
-    this.zoom = 1;
+    this._zoom = 1;
+    this.baseDistance = 0;
     const hi = SETTINGS.quality === 'high';
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }));
     r.setPixelRatio(Math.min(window.devicePixelRatio, hi ? 2 : 1));
@@ -781,7 +782,7 @@ export class Board3D {
     this.floaters = [];
 
     this.controls = new OrbitControls(this.camera, this.canvas);
-    Object.assign(this.controls, { enableDamping: true, dampingFactor: 0.08, maxPolarAngle: 1.15, minPolarAngle: 0.3, minDistance: 3, maxDistance: 50, screenSpacePanning: false });
+    Object.assign(this.controls, { enableDamping: true, dampingFactor: 0.08, maxPolarAngle: 1.15, minPolarAngle: 0.3, minDistance: 3, maxDistance: 50, screenSpacePanning: false, zoomToCursor: true });
     // middle button = drop a 1 s marker there (zoom stays on the wheel)
     this.controls.mouseButtons.MIDDLE = -1;
     this.canvas.addEventListener('pointerdown', e => {
@@ -1106,15 +1107,33 @@ export class Board3D {
     });
   }
 
-  setZoom(z) {
+  get zoom() {
+    if (!this.baseDistance) return this._zoom || 1;
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    return dist > 0 ? this.baseDistance / dist : (this._zoom || 1);
+  }
+
+  set zoom(v) {
+    this._zoom = v;
+  }
+
+  setZoom(z, cx = null, cy = null) {
     const nz = Math.max(0.5, Math.min(4, z));
-    const dir = this.camera.position.clone().sub(this.controls.target).multiplyScalar(this.zoom / nz);
-    this.zoom = nz;
+    const curZoom = this.zoom;
+    const factor = curZoom / nz;
+    if (cx != null && cy != null) {
+      const p = this.pickGround(cx, cy);
+      if (p) {
+        this.controls.target.lerp(p, 1 - factor);
+      }
+    }
+    const dir = this.camera.position.clone().sub(this.controls.target).multiplyScalar(factor);
+    this._zoom = nz;
     this.camera.position.copy(this.controls.target).add(dir);
   }
 
   resetView() {
-    this.zoom = 1;
+    this._zoom = 1;
     this.camAnim = null;
     this.frame();
   }
@@ -1145,6 +1164,8 @@ export class Board3D {
     const f = this.framing(this.top);
     this.controls.target.copy(f.target);
     this.camera.position.copy(f.pos);
+    this.baseDistance = f.pos.distanceTo(f.target);
+    this._zoom = 1;
     this.lens(f.fov);
     this.controls.update();
   }
@@ -1170,14 +1191,16 @@ export class Board3D {
     const from = { target: c.target.clone(), pos: cam.position.clone(), fov: cam.fov };
     let to;
     if (on) {
-      this.beforeTop = { ...from, zoom: this.zoom };
+      this.beforeTop = { ...from, zoom: this.zoom, baseDistance: this.baseDistance };
       to = this.framing(true);
-      this.zoom = 1;
+      this._zoom = 1;
+      this.baseDistance = to.pos.distanceTo(to.target);
       c.minPolarAngle = 0;
     } else {
       // back to where you were before going up
       to = this.beforeTop || this.framing(false);
-      this.zoom = this.beforeTop ? this.beforeTop.zoom : 1;
+      this._zoom = this.beforeTop ? this.beforeTop.zoom : 1;
+      this.baseDistance = this.beforeTop ? this.beforeTop.baseDistance : to.pos.distanceTo(to.target);
     }
     this.top = on;
     c.enableRotate = !on;
