@@ -1010,7 +1010,8 @@ function offerPanel(st, v, locked) {
   const mine = localHumans(st);
   const iAmProposer = mine.includes(tr.from);
   const pendingMe = tr.to.filter(pid => mine.includes(pid) && tr.responses[pid] == null);
-  if (!iAmProposer && !pendingMe.length && !(v >= 0 && tr.to.includes(v))) return null;
+  const acceptedMe = tr.to.filter(pid => mine.includes(pid) && tr.responses[pid] === 'accept');
+  if (!iAmProposer && !pendingMe.length && !acceptedMe.length) return null;
   const panel = h('div', { class: 'offer', 'data-trade': tr.id },
     h('div', { class: 'line' }, h('span', { class: 'turn-dot', style: { background: from.color } }), ...slots(t('{name} da {give} y pide {get}'), { name: from.name, give: h('span', { class: 'res-inline' }, resLine(tr.give)), get: h('span', { class: 'res-inline' }, resLine(tr.get)) })));
   const resp = h('div', { class: 'resp' });

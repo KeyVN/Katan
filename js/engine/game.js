@@ -1055,7 +1055,9 @@ H.proposeTrade = (s, a) => {
   const p = s.players[a.pid];
   if (p.tradeTurn !== s.turn) p.tradeTurn = s.turn, p.tradeCount = 0;
   p.tradeCount++;
-  s.trade = { id: ++s.tradeSeq, from: a.pid, give, get, to, responses: Object.fromEntries(to.map(i => [i, null])) };
+  const responses = {};
+  for (const i of to) responses[i] = canAfford(s.players[i].res, get) ? null : 'reject';
+  s.trade = { id: ++s.tradeSeq, from: a.pid, give, get, to, responses };
   log(s, msg('🤝 @{p} ofrece un intercambio.', { p: a.pid }), a.pid);
 };
 
