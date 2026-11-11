@@ -152,16 +152,46 @@ input[type=range] { accent-color: var(--sand); }
 
 /* ---------- 3D pixel labels ---------- */
 .labels-3d { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-/* even, fixed size + 16px Silkscreen (its native grid) + whole-pixel positions = crisp digits */
+/* even, fixed size + whole-pixel positions = crisp digits */
 .tok3d { font-family: var(--num); background: #f7ecd0; color: var(--ink); width: 40px; height: 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  box-shadow: 0 0 0 3px var(--ink), inset -3px -3px 0 #d7c49b, 4px 5px 0 1px rgba(0,0,0,.35); font-weight: 400; font-size: 16px; line-height: 16px; padding-top: 2px; text-align: center; -webkit-font-smoothing: none; }
+  border: 2.5px solid #9e7213; box-shadow: 0 0 0 2px var(--ink), 4px 5px 0 1px rgba(0,0,0,.35); font-weight: 700; font-size: 16px; line-height: 16px; padding-top: 2px; text-align: center; -webkit-font-smoothing: antialiased; }
 .tok3d span { display: block; height: 16px; }
 /* --tk (set by the 3D view) shrinks tokens and port signs as you zoom out, so they never cover the tiles */
 .tok3d, .port3d { scale: var(--tk, 1); }
 /* probability bar: one segment per classic Catan pip, centred, thicker and darker (then red) the likelier the number */
 .tok3d .pbar { display: flex; justify-content: center; align-items: center; gap: 2px; height: 6px; }
 .tok3d .pbar b { display: block; width: 4px; box-shadow: 0 0 0 1px rgba(26,28,44,.6); }
-.tok3d.red { color: var(--wine); }
+.tok3d.red { color: #b71c1c; }
+.tok3d.red span { font-weight: 800; text-shadow: 0 0 1.5px rgba(255,255,255,0.9); }
+
+/* Resource specific token colors (aligned with terrain) */
+.tok3d[data-resource="wood"], .tok3d.res-wood {
+  background: #cde5c8; border-color: #244d1e;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(36,77,30,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
+.tok3d[data-resource="brick"], .tok3d.res-brick {
+  background: #f4cfc2; border-color: #7d2616;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(125,38,22,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
+.tok3d[data-resource="brick"].red span, .tok3d.res-brick.red span {
+  color: #b71c1c; text-shadow: 0 0 2px #fff, 0 1px 2px #fff, 0 0 3px rgba(255,255,255,0.95);
+}
+.tok3d[data-resource="sheep"], .tok3d.res-sheep {
+  background: #e3f2b8; border-color: #558b2f;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(85,139,47,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
+.tok3d[data-resource="wheat"], .tok3d.res-wheat {
+  background: #fae6a7; border-color: #9e7213;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(158,114,19,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
+.tok3d[data-resource="ore"], .tok3d.res-ore {
+  background: #d5dde5; border-color: #455a64;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(69,90,100,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
+.tok3d[data-resource="gold"], .tok3d.res-gold {
+  background: #fff099; border-color: #c68400;
+  box-shadow: 0 0 0 2px var(--ink), inset -3px -3px 0 rgba(198,132,0,.22), 4px 5px 0 1px rgba(0,0,0,.35);
+}
 /* winning number: soft green blink for ~2.6s. Only background/box-shadow/translate are animated:
    `transform` belongs to CSS2DRenderer (animating it made the tokens jump around the screen). */
 .tok3d.rolled { animation: tokWin .65s ease-in-out 4; }
@@ -171,11 +201,11 @@ input[type=range] { accent-color: var(--sand); }
 /* build hints: soft yellow with a slow breathing glow (no hard blinking). No `transform` here either. */
 .hot3d { pointer-events: auto; border: 0; cursor: pointer; background: #ffe7a3; padding: 0; opacity: .85;
   box-shadow: 0 0 0 3px var(--ink), 0 0 0 4px rgba(255,231,163,.45); animation: hotBreath 2.4s ease-in-out infinite; }
-.hot3d.v { width: 16px; height: 16px; }
+.hot3d.v { width: 18px; height: 18px; border-radius: 50% !important; }
 .hot3d.e { width: 22px; height: 10px; }
-.hot3d.t { width: 30px; height: 30px; display: grid; place-items: center; }
+.hot3d.t { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50% !important; }
 .hot3d.t::after { content: '✖'; color: var(--ink); font-size: 15px; }
-.hot3d:hover { animation: none; opacity: 1; background: #fff4cf; box-shadow: 0 0 0 3px var(--ink), 0 0 0 7px #ffe7a3; }
+.hot3d:hover { animation: none; opacity: 1; background: #fff4cf; box-shadow: 0 0 0 3px var(--ink), 0 0 0 7px var(--pc, #ffe7a3); }
 @keyframes hotBreath { 50% { opacity: 1; box-shadow: 0 0 0 3px var(--ink), 0 0 0 9px rgba(255,231,163,.2); } }
 .board-wrap { background: var(--ink); }
 .board-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--sand); font-family: var(--display); font-size: 20px; text-shadow: 3px 3px 0 var(--wine); pointer-events: none; }

@@ -37,7 +37,7 @@ export class BoardView {
     const svg = this.svg;
     svg.addEventListener('wheel', e => {
       e.preventDefault();
-      this.setZoom(this.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY);
+      this.setZoom(this.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e);
     }, { passive: false });
     const pts = new Map();
     let start = null;
@@ -80,22 +80,26 @@ export class BoardView {
     svg.addEventListener('pointerleave', end);
   }
 
-  setZoom(z, clientX = null, clientY = null) {
-    const nz = Math.max(0.6, Math.min(4, z));
-    if (clientX != null && clientY != null && this.cx != null && this.vbW && this.vbH) {
+  setZoom(z, e = null) {
+    const oldZoom = this.zoom;
+    this.zoom = Math.max(0.6, Math.min(4, z));
+    let zoomCursor = false;
+    try {
+      zoomCursor = !!JSON.parse(localStorage.getItem('katanittes.gfx') || '{}').zoomToCursor;
+    } catch {}
+    if (e && zoomCursor && this.cx != null) {
       const rect = this.svg.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
-        const fx = (clientX - rect.left) / rect.width;
-        const fy = (clientY - rect.top) / rect.height;
-        const wx = (this.cx - this.vbW / 2) + fx * this.vbW;
-        const wy = (this.cy - this.vbH / 2) + fy * this.vbH;
-        const newVbW = this.baseW / nz;
-        const newVbH = this.baseH / nz;
-        this.cx = wx + (0.5 - fx) * newVbW;
-        this.cy = wy + (0.5 - fy) * newVbH;
+        const u = (e.clientX - rect.left) / rect.width;
+        const v = (e.clientY - rect.top) / rect.height;
+        const oldVbW = this.baseW / oldZoom;
+        const oldVbH = this.baseH / oldZoom;
+        const newVbW = this.baseW / this.zoom;
+        const newVbH = this.baseH / this.zoom;
+        this.cx += (u - 0.5) * (oldVbW - newVbW);
+        this.cy += (v - 0.5) * (oldVbH - newVbH);
       }
     }
-    this.zoom = nz;
     this.applyViewBox();
   }
 
@@ -183,7 +187,7 @@ export class BoardView {
       } else {
         g.append(S('text', { x: cx, y: cy - (t.num || !t.numRevealed ? 36 : 0) + (t.num || !t.numRevealed ? 0 : 18), class: 'tile-icon', 'font-size': t.num || !t.numRevealed ? 38 : 56 }, info.icon));
         if (t.res !== 'desert') {
-          const tk = S('g', { class: 'token' + (t.numRevealed && (t.num === 6 || t.num === 8) ? ' red' : '') });
+          const tk = S('g', { class: 'token res-' + t.res + (t.numRevealed && (t.num === 6 || t.num === 8) ? ' red' : ''), 'data-resource': t.res });
           tk.append(S('circle', { cx, cy: cy + 18, r: 27, fill: 'url(#tokenG)', stroke: '#9c8a60', 'stroke-width': 2, filter: 'url(#shadow)' }));
           if (t.numRevealed) {
             tk.append(S('text', { x: cx, y: cy + 24, class: 'token-num' }, t.num));

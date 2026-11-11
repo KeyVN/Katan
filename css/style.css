@@ -92,6 +92,7 @@ textarea { min-height: 80px; resize: vertical; font-family: ui-monospace, monosp
 .chip { padding: 8px 12px; border-radius: 99px; background: rgba(255,255,255,.07); border: 1px solid var(--line); cursor: pointer; font-weight: 700; color: var(--text); font-size: 14px; }
 .chip:hover { background: rgba(255,255,255,.14); }
 .chip.on { background: var(--gold); color: #2a1a00; border-color: #ffe08a; }
+.gfx-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .maps { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
 .map-card { border-radius: 12px; border: 2px solid transparent; background: rgba(0,0,0,.2); padding: 8px; cursor: pointer; text-align: center; transition: transform .12s; color: var(--text); }
 .map-card:hover { transform: translateY(-2px); }
@@ -212,6 +213,35 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .token.red .token-num { fill: #d32f2f; }
 .pip { fill: #2a2a2a; }
 .token.red .pip { fill: #d32f2f; }
+.token[data-resource="wood"] circle, .token.res-wood circle { fill: #cde5c8; stroke: #244d1e; stroke-width: 2.5; }
+.token[data-resource="brick"] circle, .token.res-brick circle { fill: #f4cfc2; stroke: #7d2616; stroke-width: 2.5; }
+.token[data-resource="brick"].red .token-num, .token.res-brick.red .token-num { fill: #b71c1c; filter: drop-shadow(0 0 1.5px #fff); }
+.token[data-resource="sheep"] circle, .token.res-sheep circle { fill: #e3f2b8; stroke: #558b2f; stroke-width: 2.5; }
+.token[data-resource="wheat"] circle, .token.res-wheat circle { fill: #fae6a7; stroke: #9e7213; stroke-width: 2.5; }
+.token[data-resource="ore"] circle, .token.res-ore circle { fill: #d5dde5; stroke: #455a64; stroke-width: 2.5; }
+.token[data-resource="gold"] circle, .token.res-gold circle { fill: #fff099; stroke: #c68400; stroke-width: 2.5; }
+
+/* ---------- 3D Number Tokens (.tok3d) ---------- */
+.tok3d {
+  font-family: var(--num, var(--font)); width: 40px; height: 40px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-weight: 700; font-size: 16px; line-height: 16px; padding-top: 2px; text-align: center;
+  border-radius: 50%; border: 2.5px solid #9e7213; background: #f7ecd0; color: #1a1c2c;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+.tok3d span { display: block; height: 16px; }
+.tok3d, .port3d { scale: var(--tk, 1); }
+.tok3d .pbar { display: flex; justify-content: center; align-items: center; gap: 2px; height: 6px; }
+.tok3d .pbar b { display: block; width: 4px; box-shadow: 0 0 0 1px rgba(26,28,44,.6); }
+.tok3d.red span { color: #b71c1c; font-weight: 800; text-shadow: 0 0 1.5px rgba(255,255,255,0.9); }
+
+.tok3d[data-resource="wood"], .tok3d.res-wood { background: #cde5c8; border-color: #244d1e; }
+.tok3d[data-resource="brick"], .tok3d.res-brick { background: #f4cfc2; border-color: #7d2616; }
+.tok3d[data-resource="brick"].red span, .tok3d.res-brick.red span { color: #b71c1c; text-shadow: 0 0 2px #fff, 0 1px 2px #fff, 0 0 3px rgba(255,255,255,0.95); }
+.tok3d[data-resource="sheep"], .tok3d.res-sheep { background: #e3f2b8; border-color: #558b2f; }
+.tok3d[data-resource="wheat"], .tok3d.res-wheat { background: #fae6a7; border-color: #9e7213; }
+.tok3d[data-resource="ore"], .tok3d.res-ore { background: #d5dde5; border-color: #455a64; }
+.tok3d[data-resource="gold"], .tok3d.res-gold { background: #fff099; border-color: #c68400; }
 .tile.rolled .hex { animation: rolledPulse .65s ease-in-out 4; }
 @keyframes rolledPulse { 50% { filter: brightness(1.25) drop-shadow(0 0 16px #7ee2a0); } }
 .tile.rolled .token circle { animation: rolledTok .65s ease-in-out 4; }
@@ -245,6 +275,18 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .hit-e:hover { stroke: rgba(255,255,255,.3); }
 .hot-tile { fill: rgba(255,255,255,.12); stroke: #fff; stroke-width: 4; stroke-dasharray: 10 8; cursor: pointer; animation: hotFade 1.3s infinite; }
 .hot-tile:hover { fill: rgba(255,90,90,.35); animation: none; }
+
+/* ---------- 3D Build hotspots (.hot3d) ---------- */
+.hot3d {
+  pointer-events: auto; border: 0; cursor: pointer; background: #ffe7a3; padding: 0; opacity: .85;
+  box-shadow: 0 0 0 3px #1a1c2c, 0 0 0 4px rgba(255,231,163,.45); animation: hotBreath 2.4s ease-in-out infinite;
+}
+.hot3d.v { width: 18px; height: 18px; border-radius: 50% !important; }
+.hot3d.e { width: 22px; height: 10px; border-radius: 4px; }
+.hot3d.t { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50% !important; }
+.hot3d.t::after { content: '✖'; color: #1a1c2c; font-size: 15px; }
+.hot3d:hover { animation: none; opacity: 1; background: #fff4cf; box-shadow: 0 0 0 3px #1a1c2c, 0 0 0 7px var(--pc, #ffe7a3); }
+@keyframes hotBreath { 50% { opacity: 1; box-shadow: 0 0 0 3px #1a1c2c, 0 0 0 9px rgba(255,231,163,.2); } }
 
 /* ---------- modals ---------- */
 .overlay { position: fixed; inset: 0; background: rgba(4,8,18,.66); display: grid; place-items: center; z-index: 50; padding: 16px; backdrop-filter: blur(3px); animation: fadeIn .2s; }

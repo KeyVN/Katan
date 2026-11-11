@@ -26,7 +26,7 @@ import { Dice3D, diceFlyMs } from './dice3d.js';
 
 const FOV = 32, TOP_FOV = 11; // the normal lens and the narrow one of the top view
 const TOKEN_SPAN = 0.75; // widest a number token gets on the map, in world units (a hex is 1.73 across)
-export const SETTINGS = { pixel: 1, tiltShift: true, quality: 'high', ao: true, outline: true };
+export const SETTINGS = { pixel: 1, tiltShift: true, quality: 'high', ao: true, outline: true, zoomToCursor: false };
 // phones and small screens start on the light preset
 if (typeof matchMedia === 'function' && (matchMedia('(pointer: coarse)').matches || innerWidth < 900)) Object.assign(SETTINGS, { quality: 'low', ao: false });
 try {
@@ -696,6 +696,7 @@ export class Board3D {
   static SETTINGS_Q() { return SETTINGS.quality; }
   static SETTINGS_AO() { return SETTINGS.ao; }
   static SETTINGS_OUTLINE() { return SETTINGS.outline; }
+  static SETTINGS_ZOOM_CURSOR() { return !!SETTINGS.zoomToCursor; }
 
   static async create(container) {
     const [kit, tex] = await Promise.all([loadKit(), loadTextures()]);
@@ -706,8 +707,7 @@ export class Board3D {
     this.container = container;
     this.kit = kit;
     this.tex = tex;
-    this._zoom = 1;
-    this.baseDistance = 0;
+    this.zoom = 1;
     const hi = SETTINGS.quality === 'high';
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }));
     r.setPixelRatio(Math.min(window.devicePixelRatio, hi ? 2 : 1));
@@ -782,7 +782,11 @@ export class Board3D {
     this.floaters = [];
 
     this.controls = new OrbitControls(this.camera, this.canvas);
-    Object.assign(this.controls, { enableDamping: true, dampingFactor: 0.08, maxPolarAngle: 1.15, minPolarAngle: 0.3, minDistance: 3, maxDistance: 50, screenSpacePanning: false, zoomToCursor: true });
+    Object.assign(this.controls, {
+      enableDamping: true, dampingFactor: 0.08, maxPolarAngle: 1.15, minPolarAngle: 0.3,
+      minDistance: 3, maxDistance: 50, screenSpacePanning: false,
+      zoomToCursor: !!SETTINGS.zoomToCursor,
+    });
     // middle button = drop a 1 s marker there (zoom stays on the wheel)
     this.controls.mouseButtons.MIDDLE = -1;
     this.canvas.addEventListener('pointerdown', e => {
@@ -856,6 +860,9 @@ export class Board3D {
 
   setGraphics(opts) {
     Object.assign(SETTINGS, opts);
+    if ('zoomToCursor' in opts && this.controls) {
+      this.controls.zoomToCursor = !!SETTINGS.zoomToCursor;
+    }
     try {
       localStorage.setItem('katanittes.gfx', JSON.stringify(SETTINGS));
     } catch {}
@@ -1107,33 +1114,15 @@ export class Board3D {
     });
   }
 
-  get zoom() {
-    if (!this.baseDistance) return this._zoom || 1;
-    const dist = this.camera.position.distanceTo(this.controls.target);
-    return dist > 0 ? this.baseDistance / dist : (this._zoom || 1);
-  }
-
-  set zoom(v) {
-    this._zoom = v;
-  }
-
-  setZoom(z, cx = null, cy = null) {
+  setZoom(z) {
     const nz = Math.max(0.5, Math.min(4, z));
-    const curZoom = this.zoom;
-    const factor = curZoom / nz;
-    if (cx != null && cy != null) {
-      const p = this.pickGround(cx, cy);
-      if (p) {
-        this.controls.target.lerp(p, 1 - factor);
-      }
-    }
-    const dir = this.camera.position.clone().sub(this.controls.target).multiplyScalar(factor);
-    this._zoom = nz;
+    const dir = this.camera.position.clone().sub(this.controls.target).multiplyScalar(this.zoom / nz);
+    this.zoom = nz;
     this.camera.position.copy(this.controls.target).add(dir);
   }
 
   resetView() {
-    this._zoom = 1;
+    this.zoom = 1;
     this.camAnim = null;
     this.frame();
   }
@@ -1164,8 +1153,6 @@ export class Board3D {
     const f = this.framing(this.top);
     this.controls.target.copy(f.target);
     this.camera.position.copy(f.pos);
-    this.baseDistance = f.pos.distanceTo(f.target);
-    this._zoom = 1;
     this.lens(f.fov);
     this.controls.update();
   }
@@ -1191,16 +1178,14 @@ export class Board3D {
     const from = { target: c.target.clone(), pos: cam.position.clone(), fov: cam.fov };
     let to;
     if (on) {
-      this.beforeTop = { ...from, zoom: this.zoom, baseDistance: this.baseDistance };
+      this.beforeTop = { ...from, zoom: this.zoom };
       to = this.framing(true);
-      this._zoom = 1;
-      this.baseDistance = to.pos.distanceTo(to.target);
+      this.zoom = 1;
       c.minPolarAngle = 0;
     } else {
       // back to where you were before going up
       to = this.beforeTop || this.framing(false);
-      this._zoom = this.beforeTop ? this.beforeTop.zoom : 1;
-      this.baseDistance = this.beforeTop ? this.beforeTop.baseDistance : to.pos.distanceTo(to.target);
+      this.zoom = this.beforeTop ? this.beforeTop.zoom : 1;
     }
     this.top = on;
     c.enableRotate = !on;
@@ -1446,7 +1431,7 @@ export class Board3D {
       const pl = probLook(t.num);
       // the label is a bare anchor (CSS2DRenderer owns its transform); the token inside scales with the zoom
       const face = t.numRevealed ? `<span>${t.num}</span><i class="pbar">${`<b style="height:${pl.h}px;background:${pl.c}"></b>`.repeat(pl.p)}</i>` : '<span>?</span>';
-      const tok = css2d('tok3d-at', `<div class="tok3d${red ? ' red' : ''}">${face}</div>`);
+      const tok = css2d('tok3d-at', `<div class="tok3d res-${t.res}${red ? ' red' : ''}" data-resource="${t.res}">${face}</div>`);
       tok.position.set(t.x, Math.max(h, 0.3) + 0.12, t.y);
       tok.userData.num = t.numRevealed ? t.num : null;
       this.tokens.push(tok);

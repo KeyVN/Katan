@@ -1108,15 +1108,36 @@ export function openGameOver(st) {
 }
 
 function openMenu() {
+  const isZoomToCursor = () => {
+    if (ui && ui.board3d) return ui.board3d.constructor.SETTINGS_ZOOM_CURSOR();
+    try {
+      return !!JSON.parse(localStorage.getItem('katanittes.gfx') || '{}').zoomToCursor;
+    } catch { return false; }
+  };
+  const setZoomToCursor = on => {
+    if (ui && ui.board3d) {
+      ui.board3d.setGraphics({ zoomToCursor: on });
+    } else {
+      try {
+        const s = JSON.parse(localStorage.getItem('katanittes.gfx') || '{}');
+        s.zoomToCursor = on;
+        localStorage.setItem('katanittes.gfx', JSON.stringify(s));
+      } catch {}
+    }
+  };
+
   openModal(() => h('div', null,
     h('h2', null, t('☰ Menú')),
     h('div', { style: { display: 'grid', gap: '10px' } },
-      ui.board3d ? h('div', null, h('div', { class: 'section-label' }, t('Gráficos 3D')), h('div', { class: 'gfx-row' },
-        h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_TILT() ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ tiltShift: !ui.board3d.constructor.SETTINGS_TILT() }); renderModal(App.state); } }, t('📷 Tilt-shift')),
-        h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_PIXEL() > 1 ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ pixel: ui.board3d.constructor.SETTINGS_PIXEL() > 1 ? 1 : 3 }); renderModal(App.state); } }, t('👾 Filtro pixel')),
-        h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_AO() ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ ao: !ui.board3d.constructor.SETTINGS_AO() }); renderModal(App.state); } }, t('🌑 Oclusión ambiental')),
-        h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_Q() === 'high' ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ quality: ui.board3d.constructor.SETTINGS_Q() === 'high' ? 'low' : 'high' }); toast(t('Calidad cambiada: se aplica al recargar el mapa')); renderModal(App.state); } }, t('✨ Alta calidad')),
-        h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_OUTLINE() ? ' on' : ''), title: t('Contorno fino del color de cada jugador, visible a través de montañas y árboles'), onclick: () => { ui.board3d.setGraphics({ outline: !ui.board3d.constructor.SETTINGS_OUTLINE() }); renderModal(App.state); } }, t('🔲 Contorno de piezas')))) : null,
+      ui.board ? h('div', null, h('div', { class: 'section-label' }, t('Gráficos 3D')), h('div', { class: 'gfx-row' },
+        ui.board3d ? [
+          h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_TILT() ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ tiltShift: !ui.board3d.constructor.SETTINGS_TILT() }); renderModal(App.state); } }, t('📷 Tilt-shift')),
+          h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_PIXEL() > 1 ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ pixel: ui.board3d.constructor.SETTINGS_PIXEL() > 1 ? 1 : 3 }); renderModal(App.state); } }, t('👾 Filtro pixel')),
+          h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_AO() ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ ao: !ui.board3d.constructor.SETTINGS_AO() }); renderModal(App.state); } }, t('🌑 Oclusión ambiental')),
+          h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_Q() === 'high' ? ' on' : ''), onclick: () => { ui.board3d.setGraphics({ quality: ui.board3d.constructor.SETTINGS_Q() === 'high' ? 'low' : 'high' }); toast(t('Calidad cambiada: se aplica al recargar el mapa')); renderModal(App.state); } }, t('✨ Alta calidad')),
+          h('button', { class: 'chip' + (ui.board3d.constructor.SETTINGS_OUTLINE() ? ' on' : ''), title: t('Contorno fino del color de cada jugador, visible a través de montañas y árboles'), onclick: () => { ui.board3d.setGraphics({ outline: !ui.board3d.constructor.SETTINGS_OUTLINE() }); renderModal(App.state); } }, t('🔲 Contorno de piezas')),
+        ] : null,
+        h('button', { class: 'chip' + (isZoomToCursor() ? ' on' : ''), title: t('Acercar hacia la posición del ratón en vez del centro'), onclick: () => { setZoomToCursor(!isZoomToCursor()); renderModal(App.state); } }, t('🔍 Zoom al cursor')))) : null,
       h('div', null, h('div', { class: 'section-label' }, t('Iconos de recursos')), h('div', { class: 'gfx-row' },
         ICON_SETS.map(k => [k, { render: t('🧊 3D (Blender)'), pico: t('🆕 Pixel PICO'), classic: t('🕹️ Clásicos') }[k]]).map(([k, l]) => h('button', { class: 'chip' + (iconSet() === k ? ' on' : ''), onclick: () => { setIconSet(k); if (ui.board3d) ui.board3d.staticKey = ''; render(App.state); } }, l)))),
       h('button', { class: 'btn', onclick: () => { closeModal(); showHelp(); } }, t('📖 Cómo se juega')),
