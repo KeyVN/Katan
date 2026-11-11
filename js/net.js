@@ -16,8 +16,8 @@ const PREFIX = 'kchx-v1-';
 export const HOST_SESSION = 'katanittes.hostSession';
 export const GUEST_SESSION = 'katanittes.guestSession';
 const TOKEN_KEY = 'katanittes.token';
-const GRACE_MS = 12000; // time to come back before the table votes
-const PING_MS = 3000, DEAD_MS = 15000; // heartbeat: abrupt signal loss is noticed in ~15s
+const GRACE_MS = 30000; // time to come back before the table votes
+const PING_MS = 3500, DEAD_MS = 35000; // heartbeat: signal loss noticed in ~35s (resilient to tab switches)
 const VOTE_MS = 45000;
 const WAIT_MS = 60000; // a "wait" result gives this much extra time
 const ADMIN = new Set(['retirePlayer', 'setController']);
@@ -30,10 +30,6 @@ export let METERED_KEY = '';
 
 export const STUN = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:stun.metered.ca:80' }
 ];
@@ -89,7 +85,7 @@ export function peerOptions() {
     config: {
       iceServers,
       iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 2
     }
   }));
 }
@@ -179,7 +175,11 @@ export class Net {
   pushLobby() {
     if (this.role !== 'host' || (App.state && App.state.phase !== 'gameOver')) return;
     const info = this.lobbyInfo();
-    for (const g of this.guests) if (g.conn && g.conn.open) g.conn.send({ type: 'lobby', lobby: info });
+    for (const g of this.guests) {
+      if (g.conn && g.conn.open) {
+        try { g.conn.send({ type: 'lobby', lobby: info }); } catch {}
+      }
+    }
   }
 
   kick(token) {
@@ -244,11 +244,17 @@ export class Net {
     }
     if (!this.peer) throw new Error(t('No se pudo abrir la sala'));
     clearInterval(this.hb);
+    let lastHb = Date.now();
     this.hb = setInterval(() => {
       const now = Date.now();
+      const dt = now - lastHb;
+      lastHb = now;
+      const wasSuspended = dt > 10000;
       for (const g of this.guests) {
         if (!g.conn) continue;
-        if (g.connected && now - (g.lastPong || now) > DEAD_MS) {
+        if (wasSuspended) {
+          g.lastPong = now;
+        } else if (g.connected && now - (g.lastPong || now) > DEAD_MS) {
           const c = g.conn;
           try {
             c.close();
@@ -256,7 +262,9 @@ export class Net {
           this.lost(c);
           continue;
         }
-        if (g.conn.open) g.conn.send({ type: 'ping', t: now });
+        if (g.conn.open) {
+          try { g.conn.send({ type: 'ping', t: now }); } catch {}
+        }
       }
     }, PING_MS);
     this.peer.on('connection', conn => {
@@ -283,12 +291,22 @@ export class Net {
     if (!g) return;
     g.lastPong = Date.now();
     if (msg.type === 'pong') return;
+    if (msg.type === 'ping') {
+      try { conn.send({ type: 'pong' }); } catch {}
+      return;
+    }
     if (msg.type === 'action') {
       const st = App.state;
       if (g.seat == null || !st) return;
       const a = msg.action;
-      if (!a || ADMIN.has(a.type) || a.pid !== g.seat) return conn.send({ type: 'error', msg: tk('Esa acción no es tuya.') });
-      if (st.players[g.seat].retired) return conn.send({ type: 'error', msg: tk('Te retiraron de la partida.') });
+      if (!a || ADMIN.has(a.type) || a.pid !== g.seat) {
+        try { conn.send({ type: 'error', msg: tk('Esa acción no es tuya.') }); } catch {}
+        return;
+      }
+      if (st.players[g.seat].retired) {
+        try { conn.send({ type: 'error', msg: tk('Te retiraron de la partida.') }); } catch {}
+        return;
+      }
       if (a.type === 'adhdWin') {
         // beating the arcade takes minutes: a burst of wins is someone spamming the fireworks
         const now = Date.now();
@@ -296,8 +314,9 @@ export class Net {
         g.cheered = now;
       }
       const r = applyAction(st, a);
-      if (!r.ok) conn.send({ type: 'error', msg: r.error });
-      else App.changed();
+      if (!r.ok) {
+        try { conn.send({ type: 'error', msg: r.error }); } catch {}
+      } else App.changed();
     } else if (msg.type === 'emote') {
       if (g.seat == null || !App.state) return;
       // a friend can't flood the table: at most 5 reactions every 4 seconds
@@ -388,7 +407,10 @@ export class Net {
     } else {
       toast(t('🔌 {name} se desconectó', { name: g.name }), 'error');
       const p = App.state.players[g.seat];
-      if (p && !p.retired && p.kind === 'human') this.timers.set(g.seat, setTimeout(() => this.startVote(g.seat), now ? 0 : GRACE_MS));
+      if (p && !p.retired && p.kind === 'human') {
+        clearTimeout(this.timers.get(g.seat));
+        this.timers.set(g.seat, setTimeout(() => this.startVote(g.seat), now ? 0 : GRACE_MS));
+      }
     }
     this.pushMeta();
     this.onChange();
@@ -485,11 +507,16 @@ export class Net {
 
   pushMeta() {
     this.meta = this.metaFor();
-    for (const g of this.guests) if (g.conn && g.conn.open) g.conn.send({ type: 'meta', meta: this.meta });
+    for (const g of this.guests) {
+      if (g.conn && g.conn.open) {
+        try { g.conn.send({ type: 'meta', meta: this.meta }); } catch {}
+      }
+    }
     if (App.onMeta) App.onMeta();
   }
 
   startGame(config) {
+    this.capacity = config.players.length;
     // connected guests take the online seats, in order, with their own name/flag/colour
     const free = this.guests.filter(g => g.connected && g.seat == null);
     const used = new Set(config.players.filter(p => p.kind !== 'remote').map(p => p.color));
@@ -530,17 +557,21 @@ export class Net {
     const th = hashStr(JSON.stringify(st.board.tiles));
     for (const g of this.guests) {
       if (!g.conn || !g.conn.open) continue;
-      if (!g.sentStatic) {
-        g.conn.send({ type: 'init', board: staticBoard(st), config: st.config, flags: st.players.map(p => p.flag || null) });
-        g.sentStatic = true;
-        g.tilesHash = null;
+      try {
+        if (!g.sentStatic) {
+          g.conn.send({ type: 'init', board: staticBoard(st), config: st.config, flags: st.players.map(p => p.flag || null) });
+          g.sentStatic = true;
+          g.tilesHash = null;
+        }
+        const board = { ...light.board };
+        if (g.tilesHash === th) delete board.tiles;
+        g.tilesHash = th;
+        const { config, ...rest } = light;
+        void config;
+        g.conn.send({ type: 'state', state: { ...rest, board }, seat: g.seat, meta: this.meta });
+      } catch (err) {
+        console.warn('broadcastState send error:', g.name, err);
       }
-      const board = { ...light.board };
-      if (g.tilesHash === th) delete board.tiles;
-      g.tilesHash = th;
-      const { config, ...rest } = light;
-      void config;
-      g.conn.send({ type: 'state', state: { ...rest, board }, seat: g.seat, meta: this.meta });
     }
     // autosave so the host can reopen the room after a crash / refresh
     if (st.phase === 'gameOver') storage(HOST_SESSION, null);
@@ -552,6 +583,7 @@ export class Net {
     if (!s) throw new Error(t('No hay sala guardada'));
     const net = new Net();
     App.net = net;
+    net.capacity = s.state.config.players.length;
     await net.host(s.code);
     net.guests = s.guests.map(g => ({ ...g, conn: null, connected: false }));
     App.mySeat = 0;
@@ -604,7 +636,7 @@ export class Net {
     }
 
     const maxTries = first && !this.everConnected ? 3 : 1;
-    const timeoutPerTry = first && !this.everConnected ? 15000 : 12000;
+    const timeoutPerTry = first && !this.everConnected ? 15000 : 15000;
 
     const tryConnect = () => new Promise((res, rej) => {
       let settled = false;
@@ -662,9 +694,21 @@ export class Net {
         this.reconnecting = false;
         this.lastPing = Date.now();
         clearInterval(this.hb);
+        let lastGuestHb = Date.now();
         this.hb = setInterval(() => {
+          const now = Date.now();
+          const dt = now - lastGuestHb;
+          lastGuestHb = now;
+          if (dt > 10000) {
+            // tab was asleep / suspended; reset ping tracker and send fresh ping
+            this.lastPing = now;
+            if (this.conn && this.conn.open) {
+              try { this.conn.send({ type: 'ping', t: now }); } catch {}
+            }
+            return;
+          }
           // the host vanished without closing the channel (crash / signal loss)
-          if (this.active && this.conn === c && !this.reconnecting && Date.now() - this.lastPing > DEAD_MS) {
+          if (this.active && this.conn === c && !this.reconnecting && now - this.lastPing > DEAD_MS) {
             try {
               c.close();
             } catch {}
@@ -787,24 +831,41 @@ export class Net {
   }
 
   sendEmote(e) {
-    if (this.conn && this.conn.open) this.conn.send({ type: 'emote', e });
+    if (this.conn && this.conn.open) {
+      try { this.conn.send({ type: 'emote', e }); } catch {}
+    }
   }
 
   relayEmote(seat, e) {
-    for (const g of this.guests) if (g.conn && g.conn.open) g.conn.send({ type: 'emote', seat, e });
+    for (const g of this.guests) {
+      if (g.conn && g.conn.open) {
+        try { g.conn.send({ type: 'emote', seat, e }); } catch {}
+      }
+    }
   }
 
   sendPing(x, z) {
-    if (this.conn && this.conn.open) this.conn.send({ type: 'mark', x, z });
+    if (this.conn && this.conn.open) {
+      try { this.conn.send({ type: 'mark', x, z }); } catch {}
+    }
   }
 
   relayPing(seat, x, z) {
-    for (const g of this.guests) if (g.conn && g.conn.open) g.conn.send({ type: 'mark', seat, x, z });
+    for (const g of this.guests) {
+      if (g.conn && g.conn.open) {
+        try { g.conn.send({ type: 'mark', seat, x, z }); } catch {}
+      }
+    }
   }
 
   sendAction(a) {
-    if (this.conn && this.conn.open) this.conn.send({ type: 'action', action: a });
-    else toast(t('Sin conexión con el anfitrión: reconectando...'), 'error');
+    if (this.conn && this.conn.open) {
+      try {
+        this.conn.send({ type: 'action', action: a });
+      } catch {
+        toast(t('Sin conexión con el anfitrión: reconectando...'), 'error');
+      }
+    } else toast(t('Sin conexión con el anfitrión: reconectando...'), 'error');
   }
 
   // ================= both =================
@@ -812,7 +873,9 @@ export class Net {
     const v = this.meta.vote || (this.vote && this.metaFor().vote);
     if (!v) return;
     if (this.role === 'host') this.castVote(App.mySeat, choice, v.id);
-    else if (this.conn && this.conn.open) this.conn.send({ type: 'vote', choice, voteId: v.id });
+    else if (this.conn && this.conn.open) {
+      try { this.conn.send({ type: 'vote', choice, voteId: v.id }); } catch {}
+    }
   }
 
   presence(seat) {
@@ -822,6 +885,23 @@ export class Net {
 
   currentVote() {
     return this.role === 'host' ? this.metaFor().vote : this.meta.vote;
+  }
+
+  onWakeup() {
+    const now = Date.now();
+    if (this.role === 'host') {
+      for (const g of this.guests) {
+        g.lastPong = now;
+        if (g.conn && g.conn.open) {
+          try { g.conn.send({ type: 'ping', t: now }); } catch {}
+        }
+      }
+    } else if (this.role === 'client') {
+      this.lastPing = now;
+      if (this.conn && this.conn.open) {
+        try { this.conn.send({ type: 'ping', t: now }); } catch {}
+      }
+    }
   }
 
   close() {
@@ -839,4 +919,17 @@ export class Net {
       } catch {}
     }, 150);
   }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && App.net && App.net.active) {
+      App.net.onWakeup();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (App.net && App.net.active) {
+      App.net.onWakeup();
+    }
+  });
 }
