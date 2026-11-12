@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "node tests/rules.mjs && node tests/sim.mjs 300",
+    "test": "node tests/rules.mjs && node tests/net.mjs && node tests/sim.mjs 300",
     "sim": "node tests/sim.mjs"
   }
 }

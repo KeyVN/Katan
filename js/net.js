@@ -17,23 +17,54 @@ export const HOST_SESSION = 'katanittes.hostSession';
 export const GUEST_SESSION = 'katanittes.guestSession';
 const TOKEN_KEY = 'katanittes.token';
 const GRACE_MS = 30000; // time to come back before the table votes
-const PING_MS = 3500, DEAD_MS = 35000; // heartbeat: signal loss noticed in ~35s (resilient to tab switches)
+const PING_MS = 3500, DEAD_MS = 40000; // heartbeat: signal loss noticed in ~40s (resilient to mobile data handoffs & tab switches)
 const VOTE_MS = 45000;
 const WAIT_MS = 60000; // a "wait" result gives this much extra time
 const ADMIN = new Set(['retirePlayer', 'setController']);
 let peerLib = null;
 
-// TURN relay for friends whose network blocks direct P2P (CGNAT, mobile data, campus wifi).
-// Supports Metered TURN account (free forever at dashboard.metered.ca) or custom TURN server.
+// TURN relay for friends whose network blocks direct P2P (CGNAT, mobile data, campus wifi, symmetric NAT).
+// Supports built-in global OpenRelay fallback, user Metered account, or custom TURN servers.
 export let METERED_APP = ''; // optional hardcoded "<app>" in <app>.metered.live
 export let METERED_KEY = '';
 
 export const STUN = [
   { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:stun.nextcloud.com:443' },
   { urls: 'stun:relay.metered.ca:80' },
+  { urls: 'stun:relay.metered.ca:443' },
+  { urls: 'stun:standard.relay.metered.ca:80' },
+  { urls: 'stun:standard.relay.metered.ca:443' },
   { urls: 'stun:stun.services.mozilla.com:3478' }
+];
+
+// Free public global TURN relays (Metered OpenRelay). Provides UDP, TCP, and TLS (TURNS) on ports 80 & 443
+// to bypass Symmetric NAT (4G/5G mobile carriers), CGNAT, and restrictive corporate/university firewalls.
+export const DEFAULT_TURN = [
+  {
+    urls: [
+      'turn:relay.metered.ca:80',
+      'turn:relay.metered.ca:80?transport=tcp',
+      'turn:relay.metered.ca:443',
+      'turn:relay.metered.ca:443?transport=tcp',
+      'turns:relay.metered.ca:443?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: [
+      'turn:standard.relay.metered.ca:80',
+      'turn:standard.relay.metered.ca:80?transport=tcp',
+      'turn:standard.relay.metered.ca:443',
+      'turn:standard.relay.metered.ca:443?transport=tcp',
+      'turns:standard.relay.metered.ca:443?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
 ];
 
 let iceList = null;
@@ -46,7 +77,7 @@ export function getTurnConfig() {
   const app = (METERED_APP || storage('katanittes.meteredApp') || '').trim();
   const key = (METERED_KEY || storage('katanittes.meteredKey') || '').trim();
   const custom = storage('katanittes.customTurn');
-  return { app, key, custom, hasTurn: !!((app && key) || custom) };
+  return { app, key, custom, hasTurn: !!((app && key) || custom), defaultTurn: DEFAULT_TURN };
 }
 
 export async function fetchMeteredTurn(app, key) {
@@ -81,7 +112,8 @@ export function peerOptions() {
         else if (parsed && parsed.urls) turnServers.push(parsed);
       } catch {}
     }
-    return [...STUN, ...turnServers];
+    const turns = turnServers.length > 0 ? [...turnServers, ...DEFAULT_TURN] : DEFAULT_TURN;
+    return [...STUN, ...turns];
   })();
   return iceList.then(iceServers => ({
     config: {
@@ -169,6 +201,7 @@ export class Net {
     this.open = true;
     this.hostInfo = { name: t('Anfitrión'), flag: null, color: '#e53935' };
     this.lobby = null;
+    this.connecting = false;
   }
 
   // ---------- room management (host) ----------
@@ -642,171 +675,207 @@ export class Net {
   }
 
   async connect(first) {
-    const Peer = await loadPeer();
-    const opts = await peerOptions();
-    if (!this.peer || this.peer.destroyed) {
-      await new Promise((res, rej) => {
-        const p = new Peer(opts);
-        this.peer = p;
-        p.on('open', res);
-        p.on('error', e => {
-          if (e.type === 'peer-unavailable') {
-            if (first && !this.everConnected) rej(new Error(t('No existe una sala con ese código')));
-          } else if (!this.everConnected && first) rej(new Error(t('Error de red: {type}', { type: e.type })));
+    if (this.connecting) return;
+    this.connecting = true;
+    try {
+      const Peer = await loadPeer();
+      const opts = await peerOptions();
+      if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+        await new Promise(r => {
+          this.peer.once('open', r);
+          this.peer.reconnect();
+          setTimeout(r, 2000);
         });
-        p.on('disconnected', () => {
-          if (!this.active || p.destroyed) return;
-          const tryBroker = () => {
-            if (!this.active || p.destroyed || !p.disconnected) return;
-            p.reconnect();
-            setTimeout(tryBroker, 3000);
-          };
-          setTimeout(tryBroker, 1500);
-        });
-      });
-    } else if (this.peer.disconnected && !this.peer.destroyed) {
-      await new Promise(r => {
-        this.peer.once('open', r);
-        this.peer.reconnect();
-        setTimeout(r, 2000);
-      });
-    }
-
-    const maxTries = first && !this.everConnected ? 3 : 1;
-    const timeoutPerTry = first && !this.everConnected ? 15000 : 15000;
-
-    const tryConnect = () => new Promise((res, rej) => {
-      let settled = false;
-      let timer = null;
-      let c = null;
-
-      const peerErrorHandler = err => {
-        if (settled) return;
-        if (err && err.type === 'peer-unavailable') {
-          settled = true;
-          cleanup();
-          try { c && c.close(); } catch {}
-          rej(new Error(t('No existe una sala con ese código')));
+        if (this.peer && this.peer.disconnected) {
+          try { this.peer.destroy(); } catch {}
+          this.peer = null;
         }
-      };
-
-      const cleanup = () => {
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
-        }
-        if (this.peer) {
-          try { this.peer.off('error', peerErrorHandler); } catch {}
-        }
-      };
-
-      if (this.peer) {
-        this.peer.on('error', peerErrorHandler);
       }
+      if (!this.peer || this.peer.destroyed) {
+        await new Promise((res, rej) => {
+          let settled = false;
+          const p = new Peer(opts);
+          this.peer = p;
+          const brokerTimer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try { p.destroy(); } catch {}
+            this.peer = null;
+            rej(new Error(t('Error de red: {type}', { type: 'broker' })));
+          }, 12000);
 
-      try {
-        c = this.peer.connect(PREFIX + this.code, { reliable: true });
-      } catch (err) {
-        cleanup();
-        return rej(err);
-      }
-
-      timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        try { c.close(); } catch {}
-        rej(new Error('timeout'));
-      }, timeoutPerTry);
-
-      c.on('open', () => {
-        if (settled) {
-          try { c.close(); } catch {}
-          return;
-        }
-        settled = true;
-        cleanup();
-        this.conn = c;
-        this.everConnected = true;
-        this.reconnecting = false;
-        this.lastPing = Date.now();
-        if (c.peerConnection) {
-          c.peerConnection.addEventListener('iceconnectionstatechange', () => {
-            const st = c.peerConnection && c.peerConnection.iceConnectionState;
-            if (st === 'failed') {
-              try { c.close(); } catch {}
-              if (this.active && this.conn === c) {
-                this.retry();
+          p.once('open', () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(brokerTimer);
+            res();
+          });
+          p.on('error', e => {
+            if (settled) return;
+            if (e.type === 'peer-unavailable') {
+              if (first && !this.everConnected) {
+                settled = true;
+                clearTimeout(brokerTimer);
+                rej(new Error(t('No existe una sala con ese código')));
               }
-            } else if (st === 'connected' || st === 'completed') {
-              this.reconnecting = false;
+            } else if (!this.everConnected && first) {
+              settled = true;
+              clearTimeout(brokerTimer);
+              rej(new Error(t('Error de red: {type}', { type: e.type })));
             }
           });
+          p.on('disconnected', () => {
+            if (!this.active || p.destroyed) return;
+            const tryBroker = () => {
+              if (!this.active || p.destroyed || !p.disconnected) return;
+              p.reconnect();
+              setTimeout(tryBroker, 3000);
+            };
+            setTimeout(tryBroker, 1500);
+          });
+        });
+      }
+
+      const maxTries = first && !this.everConnected ? 3 : 1;
+      const timeoutPerTry = first && !this.everConnected ? 25000 : 20000;
+
+      const tryConnect = () => new Promise((res, rej) => {
+        let settled = false;
+        let timer = null;
+        let c = null;
+
+        const peerErrorHandler = err => {
+          if (settled) return;
+          if (err && err.type === 'peer-unavailable') {
+            settled = true;
+            cleanup();
+            try { c && c.close(); } catch {}
+            rej(new Error(t('No existe una sala con ese código')));
+          }
+        };
+
+        const cleanup = () => {
+          if (timer) {
+            clearTimeout(timer);
+            timer = null;
+          }
+          if (this.peer) {
+            try { this.peer.off('error', peerErrorHandler); } catch {}
+          }
+        };
+
+        if (this.peer) {
+          this.peer.on('error', peerErrorHandler);
         }
-        clearInterval(this.hb);
-        let lastGuestHb = Date.now();
-        this.hb = setInterval(() => {
-          const now = Date.now();
-          const dt = now - lastGuestHb;
-          lastGuestHb = now;
-          if (dt > 10000) {
-            // tab was asleep / suspended; reset ping tracker and send fresh ping
-            this.lastPing = now;
-            if (this.conn && this.conn.open) {
-              try { this.conn.send({ type: 'ping', t: now }); } catch {}
-            }
+
+        try {
+          c = this.peer.connect(PREFIX + this.code, { reliable: true });
+        } catch (err) {
+          cleanup();
+          return rej(err);
+        }
+
+        timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          try { c.close(); } catch {}
+          rej(new Error('timeout'));
+        }, timeoutPerTry);
+
+        c.on('open', () => {
+          if (settled) {
+            try { c.close(); } catch {}
             return;
           }
-          // the host vanished without closing the channel (crash / signal loss)
-          if (this.active && this.conn === c && !this.reconnecting && now - this.lastPing > DEAD_MS) {
-            try {
-              c.close();
-            } catch {}
-            this.retry();
+          settled = true;
+          cleanup();
+          this.conn = c;
+          this.everConnected = true;
+          this.reconnecting = false;
+          this.lastPing = Date.now();
+          if (c.peerConnection) {
+            c.peerConnection.addEventListener('iceconnectionstatechange', () => {
+              const st = c.peerConnection && c.peerConnection.iceConnectionState;
+              if (st === 'failed') {
+                try { c.close(); } catch {}
+                if (this.active && this.conn === c) {
+                  this.retry();
+                }
+              } else if (st === 'connected' || st === 'completed') {
+                this.reconnecting = false;
+              }
+            });
           }
-        }, PING_MS);
-        c.send({ type: 'hello', name: this.name, token: myToken(), flag: this.kingdom.flag, color: this.kingdom.color });
-        this.onStatus('connected');
-        if (App.onMeta) App.onMeta();
-        res();
+          clearInterval(this.hb);
+          let lastGuestHb = Date.now();
+          this.hb = setInterval(() => {
+            const now = Date.now();
+            const dt = now - lastGuestHb;
+            lastGuestHb = now;
+            if (dt > 10000) {
+              // tab was asleep / suspended; reset ping tracker and send fresh ping
+              this.lastPing = now;
+              if (this.conn && this.conn.open) {
+                try { this.conn.send({ type: 'ping', t: now }); } catch {}
+              }
+              return;
+            }
+            // the host vanished without closing the channel (crash / signal loss)
+            if (this.active && this.conn === c && !this.reconnecting && now - this.lastPing > DEAD_MS) {
+              try {
+                c.close();
+              } catch {}
+              this.retry();
+            }
+          }, PING_MS);
+          c.send({ type: 'hello', name: this.name, token: myToken(), flag: this.kingdom.flag, color: this.kingdom.color });
+          this.onStatus('connected');
+          if (App.onMeta) App.onMeta();
+          res();
+        });
+
+        c.on('error', err => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          try { c.close(); } catch {}
+          rej(err);
+        });
+
+        c.on('data', msg => this.onClientData(msg));
+        c.on('close', () => {
+          if (!this.active || this.conn !== c) return;
+          this.retry();
+        });
       });
 
-      c.on('error', err => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        try { c.close(); } catch {}
-        rej(err);
-      });
-
-      c.on('data', msg => this.onClientData(msg));
-      c.on('close', () => {
-        if (!this.active || this.conn !== c) return;
-        this.retry();
-      });
-    });
-
-    for (let attempt = 1; attempt <= maxTries; attempt++) {
-      if (!this.active) return;
-      if (this.peer && this.peer.disconnected && !this.peer.destroyed) {
-        this.peer.reconnect();
-        await sleep(500);
-      }
-      try {
-        await tryConnect();
-        return;
-      } catch {
-        if (this.everConnected) return;
-        if (attempt < maxTries) {
-          await sleep(1000);
+      for (let attempt = 1; attempt <= maxTries; attempt++) {
+        if (!this.active) return;
+        if (this.peer && this.peer.disconnected && !this.peer.destroyed) {
+          this.peer.reconnect();
+          await sleep(500);
+        }
+        try {
+          await tryConnect();
+          return;
+        } catch (err) {
+          if (err && err.message && err.message === t('No existe una sala con ese código')) {
+            throw err;
+          }
+          if (attempt < maxTries) {
+            await sleep(1000);
+          }
         }
       }
-    }
 
-    if (first && !this.everConnected) {
-      throw new Error(t('La sala existe pero no se pudo conectar: tu red bloquea la conexión directa. Prueba con otra wifi o con datos móviles.'));
-    } else {
-      this.retry();
+      if (first && !this.everConnected) {
+        throw new Error(t('La sala existe pero no se pudo conectar: tu red bloquea la conexión directa. Prueba con otra wifi o con datos móviles.'));
+      } else {
+        throw new Error('connect-failed');
+      }
+    } finally {
+      this.connecting = false;
     }
   }
 
@@ -950,6 +1019,8 @@ export class Net {
       this.lastPing = now;
       if (this.conn && this.conn.open) {
         try { this.conn.send({ type: 'ping', t: now }); } catch {}
+      } else if (this.active && !this.reconnecting) {
+        this.retry();
       }
     }
   }

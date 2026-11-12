@@ -372,5 +372,32 @@ t('historial de tiradas: quién y cuánto, como mucho 30', () => {
   eq(last.sum, s.dice[0] + s.dice[1]);
 });
 
+t('comercio: auto-rechazo de jugadores sin recursos requeridos', () => {
+  const s = fresh();
+  give(s, 0, { wood: 1 });
+  give(s, 1, { brick: 1 });
+  // P2 y P3 no tienen ladrillo
+  ok(act(s, { type: 'proposeTrade', pid: 0, give: { wood: 1 }, get: { brick: 1 }, to: [1, 2, 3] }).ok);
+  eq(s.trade.responses[1], null, 'P1 puede aceptar');
+  eq(s.trade.responses[2], 'reject', 'P2 auto-rechazado');
+  eq(s.trade.responses[3], 'reject', 'P3 auto-rechazado');
+});
+
+t('partida 5 jugadores: mapa extendido y cola de colocación en serpiente', () => {
+  const c = defaultConfig();
+  c.rules.randomStart = false;
+  c.players = Array.from({ length: 5 }, (_, i) => ({ name: 'P' + i, kind: 'bot', color: '#123456' }));
+  c.map.shape = 'extended';
+  const s = G.createGame(c);
+  eq(s.players.length, 5);
+  eq(s.phase, 'setup');
+  // 5 jugadores x 2 rondas de colocación = 10 turnos de colocación
+  eq(s.setup.queue.length, 10);
+  eq(s.setup.queue[0].pid, 0);
+  eq(s.setup.queue[4].pid, 4); // fin de ronda 1
+  eq(s.setup.queue[5].pid, 4); // inicio de ronda 2 (serpiente vuelve con P4)
+  eq(s.setup.queue[9].pid, 0); // fin de ronda 2 con P0
+});
+
 console.log(`\n${pass} ok, ${failN} fallos`);
 process.exit(failN ? 1 : 0);
